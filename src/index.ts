@@ -3,6 +3,7 @@ import swagger from "@elysiajs/swagger";
 import { Elysia } from "elysia";
 import { authRoutes } from "./controllers/auth";
 import { config } from "./utils/config";
+import { logger } from "./plugins/logger";
 
 const app = new Elysia()
   .use(cors({}))
@@ -17,6 +18,7 @@ const app = new Elysia()
       },
     }),
   )
+  .use(logger)
   .group("/api", (app) => app.use(authRoutes));
 
 app.listen(config.PORT);

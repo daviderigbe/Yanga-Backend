@@ -69,7 +69,7 @@ export async function invalidateSession(sessionId: string): Promise<void> {
 }
 
 export function setSessionTokenCookie(
-  cookie: Cookie<string>,
+  cookie: Cookie<string | undefined>,
   token: string,
   expiresAt: Date,
 ): void {
@@ -85,7 +85,9 @@ export function setSessionTokenCookie(
   });
 }
 
-export function deleteSessionTokenCookie(cookie: Cookie<string>): void {
+export function deleteSessionTokenCookie(
+  cookie: Cookie<string | undefined>,
+): void {
   const isProduction = config.NODE_ENV === "production";
 
   cookie.set({

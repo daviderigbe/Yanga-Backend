@@ -50,7 +50,7 @@ export const signin = createBaseElysia().post(
 
       const token = generateSessionToken();
       const dbSesssion = await createSession(token, existingUser.id);
-      setSessionTokenCookie(session, token, dbSesssion.expiresAt);
+      setSessionTokenCookie(session, dbSesssion.id, dbSesssion.expiresAt);
 
       const { password: _, ...userWithoutPassword } = existingUser;
 

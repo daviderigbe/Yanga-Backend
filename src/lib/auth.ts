@@ -65,7 +65,12 @@ export async function validateSessionToken(
 }
 
 export async function invalidateSession(sessionId: string): Promise<void> {
-  await db.session.delete({ where: { id: sessionId } });
+  try {
+    await db.session.delete({ where: { id: sessionId } });
+  } catch (error) {
+    console.error("Session deletion error:", error);
+    throw error;
+  }
 }
 
 export function setSessionTokenCookie(

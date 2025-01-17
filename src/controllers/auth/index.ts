@@ -1,6 +1,7 @@
-import Elysia from "elysia";
 import { signup } from "./signup";
 import { signin } from "./signin";
+import { createBaseElysia } from "../../base";
+import { logout } from "./signout";
 
 const appSwagger = {
   detail: {
@@ -8,9 +9,10 @@ const appSwagger = {
   },
 };
 
-export const authRoutes = new Elysia({
+export const authRoutes = createBaseElysia({
   prefix: "/auth",
   detail: appSwagger.detail,
 })
+  .use(logout)
   .use(signup)
   .use(signin);

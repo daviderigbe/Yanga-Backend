@@ -1,5 +1,6 @@
 import { createBaseElysia } from "../../base";
 import { fetchProducts } from "./fetch-products";
+import { fetchProductById } from "./fetch-products-details";
 
 const appSwagger = {
   detail: {
@@ -10,4 +11,6 @@ const appSwagger = {
 export const productRoutes = createBaseElysia({
   prefix: "/products",
   detail: appSwagger.detail,
-}).use(fetchProducts);
+})
+  .use(fetchProducts)
+  .use(fetchProductById);

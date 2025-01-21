@@ -10,7 +10,7 @@ const appSwagger = {
   },
 };
 
-export const productRoutes = createBaseElysia({
+export const usersRoutes = createBaseElysia({
   prefix: "/users",
   detail: appSwagger.detail,
 })

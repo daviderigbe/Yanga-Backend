@@ -4,6 +4,9 @@ import { authRoutes } from "./controllers/auth";
 import { config } from "./utils/config";
 import { baseElysia } from "./base";
 import { productRoutes } from "./controllers/products";
+import { usersRoutes } from "./controllers/user";
+import { tagsRoutes } from "./controllers/tags";
+import { categoriesRoutes } from "./controllers/categories";
 
 const app = baseElysia()
   .use(cors({}))
@@ -18,7 +21,14 @@ const app = baseElysia()
       },
     }),
   )
-  .group("/api", (app) => app.use(authRoutes).use(productRoutes));
+  .group("/api", (app) =>
+    app
+      .use(authRoutes)
+      .use(productRoutes)
+      .use(usersRoutes)
+      .use(tagsRoutes)
+      .use(categoriesRoutes),
+  );
 
 app.listen(config.PORT);
 

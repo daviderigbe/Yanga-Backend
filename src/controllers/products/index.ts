@@ -1,4 +1,5 @@
 import { createBaseElysia } from "../../base";
+import { createProduct } from "./create-product";
 import { fetchProducts } from "./fetch-products";
 import { fetchProductById } from "./fetch-products-details";
 
@@ -13,4 +14,5 @@ export const productRoutes = createBaseElysia({
   detail: appSwagger.detail,
 })
   .use(fetchProducts)
-  .use(fetchProductById);
+  .use(fetchProductById)
+  .use(createProduct);

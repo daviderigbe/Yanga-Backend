@@ -68,6 +68,7 @@ export const editProfile = createBaseElysia().post(
         },
       });
 
+      set.status = "OK";
       return {
         status: "success",
         message: "Profile updated successfully",

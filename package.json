@@ -3,7 +3,11 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build --target=bun ./src/index.ts --outdir ./build && cp package.json build/",
+    "start": "cd build && bun run index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@bogeychan/elysia-logger": "^0.1.7",

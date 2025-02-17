@@ -1,4 +1,5 @@
 import { createBaseElysia } from "../../base";
+import { changePassword } from "./change-password";
 import { editProfile } from "./edit-profile";
 import { fetchUserById } from "./fetch-user";
 import { fetchUserLikedProducts } from "./fetch-user-liked-products";
@@ -19,4 +20,5 @@ export const usersRoutes = createBaseElysia({
   .use(fetchUserProducts)
   .use(fetchUserLikedProducts)
   .use(fetchUserReviews)
-  .use(editProfile);
+  .use(editProfile)
+  .use(changePassword);

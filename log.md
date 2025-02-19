@@ -1,1 +1,2 @@
 - [] Create a tag if it does not exist yet
+- [] When user is on break blacklist them technically and add that to the DB

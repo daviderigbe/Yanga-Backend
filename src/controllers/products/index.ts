@@ -1,5 +1,6 @@
 import { createBaseElysia } from "../../base";
 import { createProduct } from "./create-product";
+import { editProductDetails } from "./edit-product-details";
 import { fetchProducts } from "./fetch-products";
 import { fetchProductsByCategory } from "./fetch-products-by-category";
 import { fetchProductsByTag } from "./fetch-products-by-tag";
@@ -19,4 +20,5 @@ export const productRoutes = createBaseElysia({
   .use(fetchProductById)
   .use(createProduct)
   .use(fetchProductsByTag)
-  .use(fetchProductsByCategory);
+  .use(fetchProductsByCategory)
+  .use(editProductDetails);

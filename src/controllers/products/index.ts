@@ -6,6 +6,8 @@ import { fetchProducts } from "./fetch-products";
 import { fetchProductsByCategory } from "./fetch-products-by-category";
 import { fetchProductsByTag } from "./fetch-products-by-tag";
 import { fetchProductById } from "./fetch-products-details";
+import { likeProduct } from "./like-product";
+import { unlikeProduct } from "./unlike-product";
 
 const appSwagger = {
   detail: {
@@ -23,4 +25,6 @@ export const productRoutes = createBaseElysia({
   .use(fetchProductsByTag)
   .use(fetchProductsByCategory)
   .use(editProductDetails)
-  .use(deleteProduct);
+  .use(deleteProduct)
+  .use(likeProduct)
+  .use(unlikeProduct);

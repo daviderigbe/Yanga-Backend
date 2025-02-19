@@ -5,7 +5,7 @@ import { db } from "../../lib/db";
 
 // Remove image from product
 export const removeProductImage = createBaseElysia().delete(
-  ":productId/images/:imageId",
+  ":id/images/:imageId",
   async ({ set, log, cookie: { session }, params }) => {
     try {
       if (!session.value) {
@@ -46,7 +46,7 @@ export const removeProductImage = createBaseElysia().delete(
       // Reorder remaining images to maintain sequential order
       await db.productImage.updateMany({
         where: {
-          productId: params.productId,
+          productId: params.id,
           order: { gt: image.order },
         },
         data: {
@@ -69,7 +69,7 @@ export const removeProductImage = createBaseElysia().delete(
   },
   {
     params: t.Object({
-      productId: t.String(),
+      id: t.String(),
       imageId: t.String(),
     }),
     detail: {

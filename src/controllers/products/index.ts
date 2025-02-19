@@ -1,6 +1,7 @@
 import { createBaseElysia } from "../../base";
 import { addProductImage } from "./add-product-image";
 import { createProduct } from "./create-product";
+import { createProductReview } from "./create-product-review";
 import { deleteProduct } from "./delete-product";
 import { editProductDetails } from "./edit-product-details";
 import { fetchProducts } from "./fetch-products";
@@ -33,4 +34,5 @@ export const productRoutes = createBaseElysia({
   .use(unlikeProduct)
   .use(addProductImage)
   .use(removeProductImage)
-  .use(reorderProductImages);
+  .use(reorderProductImages)
+  .use(createProductReview);

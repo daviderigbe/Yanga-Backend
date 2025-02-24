@@ -5,6 +5,8 @@ import { fetchUserById } from "./fetch-user";
 import { fetchUserLikedProducts } from "./fetch-user-liked-products";
 import { fetchUserProducts } from "./fetch-user-products";
 import { fetchUserReviews } from "./fetch-user-reviews";
+import { followUser } from "./follow-user";
+import { unfollowUser } from "./unfollow-user";
 
 const appSwagger = {
   detail: {
@@ -21,4 +23,6 @@ export const usersRoutes = createBaseElysia({
   .use(fetchUserLikedProducts)
   .use(fetchUserReviews)
   .use(editProfile)
-  .use(changePassword);
+  .use(changePassword)
+  .use(followUser)
+  .use(unfollowUser);

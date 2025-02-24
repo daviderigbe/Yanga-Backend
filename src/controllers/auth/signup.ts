@@ -8,24 +8,40 @@ export const signup = createBaseElysia().post(
     try {
       const { email, password, name, username } = body;
 
-      const existingUser = await db.user.findUnique({
+      // Check if email already exists
+      const existingEmail = await db.user.findUnique({
         where: {
           email,
         },
       });
 
-      if (existingUser) {
-        log.error("User already exists");
+      if (existingEmail) {
+        log.error("User with this email already exists");
         set.status = "Conflict";
-
         return {
           status: "error",
           message: "User with this email already exists",
         } as ApiResponse<null>;
       }
 
-      const passwordHash = await Bun.password.hash(password);
+      // Check if username already exists
+      const existingUsername = await db.user.findUnique({
+        where: {
+          userName: username,
+        },
+      });
 
+      if (existingUsername) {
+        log.error("User with this username already exists");
+        set.status = "Conflict";
+        return {
+          status: "error",
+          message: "User with this username already exists",
+        } as ApiResponse<null>;
+      }
+
+      // Hash password and create user
+      const passwordHash = await Bun.password.hash(password);
       const newUser = await db.user.create({
         data: {
           email,
@@ -51,7 +67,6 @@ export const signup = createBaseElysia().post(
           message: "Invalid request data",
         } as ApiResponse<null>;
       }
-
       set.status = 500;
       return {
         status: "error",
@@ -86,16 +101,18 @@ export const signup = createBaseElysia().post(
       message: t.String(),
       data: t.Optional(
         t.Object({
-          id: t.Number(),
+          id: t.String(),
           email: t.String(),
           name: t.String(),
+          userName: t.String(),
         }),
       ),
     }),
     detail: {
       tags: ["Auth"],
       summary: "Create new user account",
-      description: "Register a new user with email, password and name",
+      description:
+        "Register a new user with email, username, password and name",
     },
   },
 );

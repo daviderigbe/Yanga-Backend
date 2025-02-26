@@ -83,7 +83,7 @@ export function setSessionTokenCookie(
   cookie.set({
     value: token,
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "none",
     expires: expiresAt,
     path: "/",
     secure: isProduction, // Only set secure flag in production
@@ -98,7 +98,7 @@ export function deleteSessionTokenCookie(
   cookie.set({
     value: "",
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "none",
     maxAge: 0,
     path: "/",
     secure: isProduction, // Only set secure flag in production

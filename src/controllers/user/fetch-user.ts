@@ -15,15 +15,17 @@ const UserResponseSchema = t.Object({
       bio: t.Optional(t.String()),
       userName: t.Optional(t.String()),
       enableBundleBuying: t.Boolean(),
-      unavailableUntil: t.Optional(t.String()),
-      createdAt: t.String(),
-      updatedAt: t.String(),
+      // Fix for unavailableUntil - allow it to be null
+      unavailableUntil: t.Optional(t.Union([t.String(), t.Null()])),
+      // Fix for date formats
+      createdAt: t.Union([t.String(), t.Date()]),
+      updatedAt: t.Union([t.String(), t.Date()]),
       stats: t.Object({
         productsCount: t.Number(),
         soldCount: t.Number(),
         followersCount: t.Number(),
         followingCount: t.Number(),
-        averageRating: t.Optional(t.Number()),
+        averageRating: t.Optional(t.Union([t.Number(), t.Null()])),
       }),
     }),
   ),

@@ -4,6 +4,8 @@ import { createProduct } from "./create-product";
 import { createProductReview } from "./create-product-review";
 import { deleteProduct } from "./delete-product";
 import { editProductDetails } from "./edit-product-details";
+import { fetchBestSellingProducts } from "./fetch-best-selling";
+import { fetchNewestProducts } from "./fetch-newest-products";
 import { fetchProducts } from "./fetch-products";
 import { fetchProductsByCategory } from "./fetch-products-by-category";
 import { fetchProductsByTag } from "./fetch-products-by-tag";
@@ -35,4 +37,6 @@ export const productRoutes = createBaseElysia({
   .use(addProductImage)
   .use(removeProductImage)
   .use(reorderProductImages)
-  .use(createProductReview);
+  .use(createProductReview)
+  .use(fetchBestSellingProducts)
+  .use(fetchNewestProducts);

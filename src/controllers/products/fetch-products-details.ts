@@ -2,7 +2,7 @@ import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
 
-// Define the response type for single product
+// Update the SingleProductResponseSchema to include more seller details
 const SingleProductResponseSchema = t.Object({
   status: t.Enum({ success: "success", error: "error" }),
   message: t.String(),
@@ -62,6 +62,12 @@ const SingleProductResponseSchema = t.Object({
       seller: t.Object({
         id: t.String(),
         name: t.String(),
+        userName: t.Optional(t.String()),
+        imageUrl: t.Optional(t.String()),
+        averageRating: t.Optional(t.Number()),
+        totalReviews: t.Optional(t.Number()),
+        bio: t.Optional(t.String()),
+        followers: t.Optional(t.Number()),
       }),
       isAvailable: t.Boolean(),
       createdAt: t.String(),
@@ -124,9 +130,24 @@ export const fetchProductById = createBaseElysia().get(
             },
           },
           seller: {
-            select: {
-              id: true,
-              name: true,
+            include: {
+              products: {
+                select: {
+                  id: true,
+                  reviews: {
+                    select: {
+                      rating: true,
+                    },
+                  },
+                },
+              },
+              _count: {
+                select: {
+                  followers: true,
+                  products: true,
+                  reviews: true,
+                },
+              },
             },
           },
         },
@@ -140,15 +161,32 @@ export const fetchProductById = createBaseElysia().get(
         };
       }
 
+      // Calculate seller's average rating
+      const sellerReviews = product.seller.products.flatMap((p) => p.reviews);
+      const averageRating =
+        sellerReviews.length > 0
+          ? sellerReviews.reduce((sum, review) => sum + review.rating, 0) /
+            sellerReviews.length
+          : null;
+
       // Transform the data to match the expected format
       const transformedProduct = {
         ...product,
         tags: product.tags.map(({ tag }) => tag),
         likesCount: product.likes.length,
+        seller: {
+          id: product.seller.id,
+          name: product.seller.name,
+          userName: product.seller.userName,
+          imageUrl: product.seller.imageUrl,
+          bio: product.seller.bio,
+          averageRating: averageRating
+            ? Number(averageRating.toFixed(1))
+            : null,
+          totalReviews: sellerReviews.length,
+          followers: product.seller._count.followers,
+        },
       };
-
-      // Remove the likes array since we've transformed it to count
-      // delete transformedProduct.likes;
 
       set.status = "OK";
       return {
@@ -173,7 +211,8 @@ export const fetchProductById = createBaseElysia().get(
     detail: {
       tags: ["Products"],
       summary: "Fetch product by id",
-      description: "Fetch a single product by ID with all its related data",
+      description:
+        "Fetch a single product by ID with all its related data, including detailed seller information",
     },
   },
 );

@@ -91,6 +91,26 @@ export const fetchProducts = createBaseElysia().get(
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
 
+      // Define the dynamic filtering conditions
+      // const whereConditions = {
+      //   status,
+      //   isAvailable: true,
+      //   ...(search && {
+      //     OR: [
+      //       { title: { contains: search, mode: "insensitive" } },
+      //       { description: { contains: search, mode: "insensitive" } },
+      //     ],
+      //   }),
+      //   ...(gender && { gender }),
+      //   ...(condition && { condition }),
+      //   ...(categoryId && { categoryId }),
+      //   ...(brand && { brand }),
+      //   ...(color && { color: { contains: color, mode: "insensitive" } }),
+      //   ...(size && { size }),
+      //   ...(minPrice && { basePrice: { gte: parseFloat(minPrice) } }),
+      //   ...(maxPrice && { basePrice: { lte: parseFloat(maxPrice) } }),
+      // };
+
       // Fetch products with filters and pagination
       const [products, total] = await Promise.all([
         db.product.findMany({
@@ -140,7 +160,27 @@ export const fetchProducts = createBaseElysia().get(
             },
           },
         }),
-        db.product.count({}),
+        // Use the same filtering conditions for counting total products
+        db.product.count({
+          where: {
+            status,
+            isAvailable: true,
+            ...(search && {
+              OR: [
+                { title: { contains: search, mode: "insensitive" } },
+                { description: { contains: search, mode: "insensitive" } },
+              ],
+            }),
+            ...(gender && { gender }),
+            ...(condition && { condition }),
+            ...(categoryId && { categoryId }),
+            ...(brand && { brand }),
+            ...(color && { color: { contains: color, mode: "insensitive" } }),
+            ...(size && { size }),
+            ...(minPrice && { basePrice: { gte: parseFloat(minPrice) } }),
+            ...(maxPrice && { basePrice: { lte: parseFloat(maxPrice) } }),
+          },
+        }),
       ]);
 
       // Calculate pagination metadata

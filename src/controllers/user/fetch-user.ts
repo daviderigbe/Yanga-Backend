@@ -3,21 +3,20 @@ import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
 
 // Define the response type for single user
+
 const UserResponseSchema = t.Object({
   status: t.Enum({ success: "success", error: "error" }),
   message: t.String(),
   data: t.Optional(
     t.Object({
       id: t.String(),
-      name: t.Optional(t.String()),
+      name: t.Optional(t.Union([t.String(), t.Null()])),
       email: t.String(),
-      imageUrl: t.Optional(t.String()),
-      bio: t.Optional(t.String()),
-      userName: t.Optional(t.String()),
+      imageUrl: t.Optional(t.Union([t.String(), t.Null()])),
+      bio: t.Optional(t.Union([t.String(), t.Null()])),
+      userName: t.Optional(t.Union([t.String(), t.Null()])),
       enableBundleBuying: t.Boolean(),
-      // Fix for unavailableUntil - allow it to be null
       unavailableUntil: t.Optional(t.Union([t.String(), t.Null()])),
-      // Fix for date formats
       createdAt: t.Union([t.String(), t.Date()]),
       updatedAt: t.Union([t.String(), t.Date()]),
       stats: t.Object({

@@ -310,6 +310,177 @@ async function createProducts(users, categories, tags) {
         "https://images.unsplash.com/photo-1598808503746-f34c53b9323e",
       ],
     },
+    {
+      title: "Minimalist White Sneakers",
+      description:
+        "Clean, simple white sneakers perfect for everyday wear. Barely used.",
+      basePrice: 79.99,
+      discountPercent: 10,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.LIKE_NEW,
+      size: "43",
+      gender: Gender.UNISEX,
+      color: "White",
+      brand: "Adidas",
+      categoryIndex: 4, // Shoes
+      tagIndices: [3, 11], // Modern, Everyday
+      images: [
+        "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a",
+        "https://images.unsplash.com/photo-1460353581133-d2d7eae3f94c",
+      ],
+    },
+    {
+      title: "Organic Cotton Yoga Pants",
+      description:
+        "Comfortable high-waisted yoga pants made from sustainable organic cotton.",
+      basePrice: 55.0,
+      discountPercent: 15,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.NEW,
+      size: "M",
+      gender: Gender.WOMEN,
+      color: "Black",
+      brand: "Lululemon",
+      categoryIndex: 6, // Activewear
+      tagIndices: [6, 13], // Spring, Budget
+      images: [
+        "https://images.unsplash.com/photo-1599058917765-a780eda07a3e",
+        "https://images.unsplash.com/photo-1598193957011-8ae5ded7aaec",
+      ],
+    },
+    {
+      title: "Vintage Silk Scarf",
+      description:
+        "Elegant silk scarf with intricate geometric pattern. Perfect accessory.",
+      basePrice: 45.5,
+      discountPercent: 20,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.LIGHTLY_USED,
+      size: "One Size",
+      gender: Gender.WOMEN,
+      color: "Blue/Gold",
+      brand: "Hermès",
+      categoryIndex: 5, // Accessories
+      tagIndices: [2, 12], // Vintage, Luxury
+      images: [
+        "https://images.unsplash.com/photo-1617104666298-550a8cdf9a39",
+        "https://images.unsplash.com/photo-1589285086712-4babb42d08cd",
+      ],
+    },
+    {
+      title: "Vintage Denim Jacket",
+      description:
+        "Classic blue denim jacket with authentic 80s wash. Unique vintage piece.",
+      basePrice: 65.0,
+      discountPercent: 5,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.FAIRLY_USED,
+      size: "L",
+      gender: Gender.UNISEX,
+      color: "Blue",
+      brand: "Levi's",
+      categoryIndex: 3, // Outerwear
+      tagIndices: [2, 14], // Vintage, Streetwear
+      images: [
+        "https://images.unsplash.com/photo-1509939197915-0dda9c299a9d",
+        "https://images.unsplash.com/photo-1509350022279-43e4b55e506c",
+      ],
+    },
+    {
+      title: "Summer Linen Button-Down Shirt",
+      description:
+        "Lightweight breathable linen shirt. Perfect for summer office or casual wear.",
+      basePrice: 49.99,
+      discountPercent: 0,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.LIKE_NEW,
+      size: "M",
+      gender: Gender.MEN,
+      color: "Light Blue",
+      brand: "Uniqlo",
+      categoryIndex: 0, // Tops
+      tagIndices: [4, 9], // Summer, Office
+      images: [
+        "https://images.unsplash.com/photo-1610302844055-f00f1248bca8",
+        "https://images.unsplash.com/photo-1613194537211-10d33fc6d914",
+      ],
+    },
+    {
+      title: "Winter Wool Coat",
+      description:
+        "High-quality wool coat in classic camel color. Warm and stylish for winter.",
+      basePrice: 129.99,
+      discountPercent: 15,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.LIKE_NEW,
+      size: "L",
+      gender: Gender.WOMEN,
+      color: "Camel",
+      brand: "Zara",
+      categoryIndex: 3, // Outerwear
+      tagIndices: [5, 7], // Winter, Fall
+      images: [
+        "https://images.unsplash.com/photo-1540221652346-c7d0221d9c04",
+        "https://images.unsplash.com/photo-1614900126822-5d7276a31fe0",
+      ],
+    },
+    {
+      title: "Classic Chinos",
+      description:
+        "Versatile slim-fit chinos in neutral khaki. Great for multiple occasions.",
+      basePrice: 59.5,
+      discountPercent: 10,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.LIGHTLY_USED,
+      size: "34",
+      gender: Gender.MEN,
+      color: "Khaki",
+      brand: "Dockers",
+      categoryIndex: 1, // Bottoms
+      tagIndices: [0, 10], // Casual, Everyday
+      images: [
+        "https://images.unsplash.com/photo-1600269452121-ea0a9be9a7d2",
+        "https://images.unsplash.com/photo-1611199531705-aa0314ecb9d3",
+      ],
+    },
+    {
+      title: "Evening Cocktail Dress",
+      description:
+        "Elegant black cocktail dress with subtle sequin details. Perfect for parties.",
+      basePrice: 89.0,
+      discountPercent: 25,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.LIKE_NEW,
+      size: "M",
+      gender: Gender.WOMEN,
+      color: "Black",
+      brand: "Ted Baker",
+      categoryIndex: 2, // Dresses
+      tagIndices: [1, 10], // Formal, Party
+      images: [
+        "https://images.unsplash.com/photo-1519345182560-3f2917c472ef",
+        "https://images.unsplash.com/photo-1525507119028-ed4c629c60f3",
+      ],
+    },
+    {
+      title: "Retro Sports Track Jacket",
+      description:
+        "Classic track jacket with vintage sports brand logo. Trendy streetwear piece.",
+      basePrice: 45.0,
+      discountPercent: 5,
+      status: ProductStatus.ACTIVE,
+      condition: Condition.FAIRLY_USED,
+      size: "S",
+      gender: Gender.UNISEX,
+      color: "Red/White",
+      brand: "Adidas Originals",
+      categoryIndex: 3, // Outerwear
+      tagIndices: [3, 14], // Modern, Streetwear
+      images: [
+        "https://images.unsplash.com/photo-1489987707489-bdcb91a5af48",
+        "https://images.unsplash.com/photo-1526170375885-4d8ecf77f80f",
+      ],
+    },
   ];
 
   const products = [];

@@ -7,6 +7,7 @@ import { productRoutes } from "./controllers/products";
 import { usersRoutes } from "./controllers/user";
 import { tagsRoutes } from "./controllers/tags";
 import { categoriesRoutes } from "./controllers/categories";
+import { cartRoutes } from "./controllers/cart";
 
 const app = baseElysia()
   .use(cors({}))
@@ -27,7 +28,8 @@ const app = baseElysia()
       .use(productRoutes)
       .use(usersRoutes)
       .use(tagsRoutes)
-      .use(categoriesRoutes),
+      .use(categoriesRoutes)
+      .use(cartRoutes),
   );
 
 app.listen(config.PORT);

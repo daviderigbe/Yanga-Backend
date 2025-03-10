@@ -53,6 +53,7 @@ model User {
 
   // Notifications
   notifications Notification[]
+  Cart          Cart?
 }
 
 model Session {
@@ -91,9 +92,10 @@ model Product {
   orderItems OrderItem[]
 
   // Timestamps and Metadata
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isAvailable Boolean  @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  isAvailable Boolean    @default(true)
+  CartItem    CartItem[]
 }
 
 model ProductImage {
@@ -170,6 +172,28 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Decimal // Price at time of purchase
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
 }
 
 model Address {

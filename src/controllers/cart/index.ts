@@ -1,5 +1,6 @@
 import { createBaseElysia } from "../../base";
 import { addToCart } from "./add-product-to-cart";
+import { clearCart } from "./clear-cart";
 import { getCart } from "./get-cart";
 import { removeCartItem } from "./remove-cart.item";
 import { updateCartItem } from "./update-cart-item";
@@ -17,4 +18,5 @@ export const cartRoutes = createBaseElysia({
   .use(addToCart)
   .use(getCart)
   .use(updateCartItem)
-  .use(removeCartItem);
+  .use(removeCartItem)
+  .use(clearCart);

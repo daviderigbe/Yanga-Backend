@@ -1,6 +1,7 @@
 import { createBaseElysia } from "../../base";
 import { addToCart } from "./add-product-to-cart";
 import { getCart } from "./get-cart";
+import { updateCartItem } from "./update-cart-item";
 
 const appSwagger = {
   detail: {
@@ -13,4 +14,5 @@ export const cartRoutes = createBaseElysia({
   detail: appSwagger.detail,
 })
   .use(addToCart)
-  .use(getCart);
+  .use(getCart)
+  .use(updateCartItem);

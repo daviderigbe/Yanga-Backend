@@ -42,6 +42,8 @@ async function cleanDatabase() {
   await db.address.deleteMany({});
   await db.session.deleteMany({});
   await db.user.deleteMany({});
+  await db.cartItem.deleteMany({});
+  await db.cart.deleteMany({});
 
   console.log("Database cleaned.");
 }

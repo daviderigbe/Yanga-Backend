@@ -1,6 +1,7 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
+import { validateSessionToken } from "../../lib/auth";
 
 // Define the response type for better type safety
 const ProductResponseSchema = t.Object({
@@ -51,6 +52,8 @@ const ProductResponseSchema = t.Object({
           isAvailable: t.Boolean(),
           createdAt: t.String(),
           updatedAt: t.String(),
+          isNew: t.Boolean(),
+          isLiked: t.Boolean(),
         }),
       ),
       pagination: t.Object({
@@ -67,7 +70,7 @@ const ProductResponseSchema = t.Object({
 
 export const fetchProducts = createBaseElysia().get(
   "",
-  async ({ set, log, query }) => {
+  async ({ set, log, cookie: { session }, query }) => {
     try {
       const {
         page = "1",
@@ -86,30 +89,21 @@ export const fetchProducts = createBaseElysia().get(
         sortOrder = "desc",
       } = query;
 
+      let userId: string | undefined = undefined;
+      if (session && session.value) {
+        try {
+          const { user } = await validateSessionToken(session.value);
+          userId = user?.id;
+        } catch (error) {
+          // Session validation failed but we continue without user context
+          log.warn("Session validation failed");
+        }
+      }
+
       // Convert pagination params to numbers
       const currentPage = parseInt(page);
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
-
-      // Define the dynamic filtering conditions
-      // const whereConditions = {
-      //   status,
-      //   isAvailable: true,
-      //   ...(search && {
-      //     OR: [
-      //       { title: { contains: search, mode: "insensitive" } },
-      //       { description: { contains: search, mode: "insensitive" } },
-      //     ],
-      //   }),
-      //   ...(gender && { gender }),
-      //   ...(condition && { condition }),
-      //   ...(categoryId && { categoryId }),
-      //   ...(brand && { brand }),
-      //   ...(color && { color: { contains: color, mode: "insensitive" } }),
-      //   ...(size && { size }),
-      //   ...(minPrice && { basePrice: { gte: parseFloat(minPrice) } }),
-      //   ...(maxPrice && { basePrice: { lte: parseFloat(maxPrice) } }),
-      // };
 
       // Fetch products with filters and pagination
       const [products, total] = await Promise.all([
@@ -158,6 +152,16 @@ export const fetchProducts = createBaseElysia().get(
                 name: true,
               },
             },
+            likes: userId
+              ? {
+                  where: {
+                    userId: userId,
+                  },
+                  select: {
+                    id: true,
+                  },
+                }
+              : undefined,
           },
         }),
         // Use the same filtering conditions for counting total products
@@ -186,13 +190,25 @@ export const fetchProducts = createBaseElysia().get(
       // Calculate pagination metadata
       const lastPage = Math.ceil(total / perPage);
 
+      // Define what makes a product "new" - here using 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
       set.status = "OK";
 
       return {
         status: "success",
         message: "Products retrieved successfully",
         data: {
-          items: products,
+          items: products.map((product) => ({
+            ...product,
+            // Check if product is new (posted within the last 7 days)
+            isNew: new Date(product.createdAt) > sevenDaysAgo,
+            // Check if the product is liked by the current user
+            isLiked: userId ? product.likes && product.likes.length > 0 : false,
+            // Remove the likes array from the response
+            likes: undefined,
+          })),
           pagination: {
             total,
             lastPage,

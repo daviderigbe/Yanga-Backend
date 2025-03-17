@@ -1,17 +1,29 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
+import { validateSessionToken } from "../../lib/auth";
 
 export const fetchUserProducts = createBaseElysia().get(
   "/:id/products",
-  async ({ set, log, params, query }) => {
+  async ({ set, log, params, query, cookie: { session } }) => {
     try {
       const { id } = params;
       const { page = "1", limit = "10", status = "ACTIVE" } = query;
-
       const currentPage = parseInt(page);
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
+
+      // Get the logged-in user's ID from the session
+      let loggedInUserId: string | undefined = undefined;
+      if (session && session.value) {
+        try {
+          const { user } = await validateSessionToken(session.value);
+          loggedInUserId = user?.id;
+        } catch (error) {
+          // Session validation failed but we continue without user context
+          log.warn("Session validation failed");
+        }
+      }
 
       const [products, total] = await Promise.all([
         db.product.findMany({
@@ -41,6 +53,16 @@ export const fetchUserProducts = createBaseElysia().get(
                 likes: true,
               },
             },
+            likes: loggedInUserId
+              ? {
+                  where: {
+                    userId: loggedInUserId,
+                  },
+                  select: {
+                    id: true,
+                  },
+                }
+              : undefined,
           },
           skip,
           take: perPage,
@@ -62,9 +84,10 @@ export const fetchUserProducts = createBaseElysia().get(
         status: "success",
         message: "Products retrieved successfully",
         data: {
-          items: products.map(({ _count, ...product }) => ({
+          items: products.map(({ _count, likes, ...product }) => ({
             ...product,
             likesCount: _count.likes,
+            isLiked: loggedInUserId ? likes.length > 0 : false,
           })),
           pagination: {
             total,

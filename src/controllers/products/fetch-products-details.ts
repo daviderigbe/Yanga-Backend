@@ -1,8 +1,9 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
+import { validateSessionToken } from "../../lib/auth";
 
-// Update the SingleProductResponseSchema to include more seller details
+// Update the SingleProductResponseSchema to include isLiked field
 const SingleProductResponseSchema = t.Object({
   status: t.Enum({ success: "success", error: "error" }),
   message: t.String(),
@@ -52,6 +53,7 @@ const SingleProductResponseSchema = t.Object({
         }),
       ),
       likesCount: t.Number(),
+      isLiked: t.Boolean(), // Add isLiked field to the schema
       images: t.Array(
         t.Object({
           id: t.String(),
@@ -78,9 +80,22 @@ const SingleProductResponseSchema = t.Object({
 
 export const fetchProductById = createBaseElysia().get(
   "/:id",
-  async ({ set, log, params }) => {
+  async ({ set, log, params, cookie: { session } }) => {
     try {
       const { id } = params;
+
+      // Get the logged-in user's ID from the session
+      let loggedInUserId: string | undefined = undefined;
+      if (session && session.value) {
+        try {
+          const { user } = await validateSessionToken(session.value);
+          loggedInUserId = user?.id;
+        } catch (error) {
+          // Session validation failed but we continue without user context
+          log.warn("Session validation failed");
+        }
+      }
+
       const product = await db.product.findUnique({
         where: {
           id: id,
@@ -117,6 +132,7 @@ export const fetchProductById = createBaseElysia().get(
           likes: {
             select: {
               id: true,
+              userId: true,
             },
           },
           images: {
@@ -169,11 +185,17 @@ export const fetchProductById = createBaseElysia().get(
             sellerReviews.length
           : null;
 
+      // Check if the logged-in user has liked this product
+      const isLiked = loggedInUserId
+        ? product.likes.some((like) => like.userId === loggedInUserId)
+        : false;
+
       // Transform the data to match the expected format
       const transformedProduct = {
         ...product,
         tags: product.tags.map(({ tag }) => tag),
         likesCount: product.likes.length,
+        isLiked, // Add the isLiked field
         seller: {
           id: product.seller.id,
           name: product.seller.name,
@@ -212,7 +234,7 @@ export const fetchProductById = createBaseElysia().get(
       tags: ["Products"],
       summary: "Fetch product by id",
       description:
-        "Fetch a single product by ID with all its related data, including detailed seller information",
+        "Fetch a single product by ID with all its related data, including detailed seller information and whether the logged-in user has liked it",
     },
   },
 );

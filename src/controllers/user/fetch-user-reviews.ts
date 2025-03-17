@@ -17,38 +17,26 @@ export const fetchUserReviews = createBaseElysia().get(
           where: {
             userId: id,
           },
-          include: {
+          select: {
+            id: true,
+            rating: true,
+            description: true,
+            user: {
+              select: {
+                name: true,
+              },
+            },
             product: {
               select: {
                 id: true,
-                title: true,
                 images: {
                   orderBy: {
                     order: "asc",
                   },
                   select: {
-                    id: true,
                     url: true,
-                    order: true,
-                  },
-                  take: 1,
-                },
-                seller: {
-                  select: {
-                    id: true,
-                    name: true,
-                    userName: true,
-                    imageUrl: true,
                   },
                 },
-              },
-            },
-            user: {
-              select: {
-                id: true,
-                name: true,
-                userName: true,
-                imageUrl: true,
               },
             },
           },
@@ -72,11 +60,11 @@ export const fetchUserReviews = createBaseElysia().get(
         message: "Reviews retrieved successfully",
         data: {
           items: reviews.map((review) => ({
-            ...review,
-            product: {
-              ...review.product,
-              image: review.product.images[0] || null,
-            },
+            id: review.id,
+            productImages: review.product.images.map((image) => image.url),
+            reviewerName: review.user.name,
+            rating: review.rating,
+            reviewerComment: review.description,
           })),
           pagination: {
             total,

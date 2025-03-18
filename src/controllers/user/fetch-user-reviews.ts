@@ -24,6 +24,7 @@ export const fetchUserReviews = createBaseElysia().get(
             user: {
               select: {
                 name: true,
+                imageUrl: true,
               },
             },
             product: {
@@ -83,6 +84,7 @@ export const fetchUserReviews = createBaseElysia().get(
             id: review.id,
             productImages: review.product.images.map((image) => image.url),
             reviewerName: review.user.name,
+            reviewerImageUrl: review.user.imageUrl,
             rating: review.rating,
             reviewerComment: review.description,
           })),

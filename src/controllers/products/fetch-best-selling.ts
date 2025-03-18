@@ -1,15 +1,31 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
+import { validateSessionToken } from "../../lib/auth";
 
 export const fetchBestSellingProducts = createBaseElysia().get(
   "/best-selling",
-  async ({ set, log, query }) => {
+  async ({ set, log, query, cookie: { session } }) => {
     try {
       const { page = "1", limit = "10" } = query;
       const currentPage = parseInt(page);
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
+
+      // Check if user is logged in (optional)
+      let userId = null;
+      if (session?.value) {
+        try {
+          const { user } = await validateSessionToken(session.value);
+          if (user) {
+            userId = user.id;
+          }
+        } catch (error) {
+          // Silently continue if session validation fails
+          // This ensures the endpoint still works for unauthenticated users
+          log.error("Session validation error:", error);
+        }
+      }
 
       // Fetch best-selling products based on total order items
       const [products, total] = await Promise.all([
@@ -54,6 +70,19 @@ export const fetchBestSellingProducts = createBaseElysia().get(
                 orderItems: true,
               },
             },
+            // Include likes only if user is logged in
+            ...(userId
+              ? {
+                  likes: {
+                    where: {
+                      userId: userId,
+                    },
+                    select: {
+                      id: true,
+                    },
+                  },
+                }
+              : {}),
           },
           orderBy: [
             {
@@ -82,12 +111,16 @@ export const fetchBestSellingProducts = createBaseElysia().get(
         status: "success",
         message: "Best selling products retrieved successfully",
         data: {
-          items: products.map(({ _count, tags: productTags, ...product }) => ({
-            ...product,
-            tags: productTags.map(({ tag }) => tag),
-            likesCount: _count.likes,
-            salesCount: _count.orderItems,
-          })),
+          items: products.map(
+            ({ _count, tags: productTags, likes, ...product }) => ({
+              ...product,
+              tags: productTags.map(({ tag }) => tag),
+              likesCount: _count.likes,
+              salesCount: _count.orderItems,
+              // Add isLiked field only if user is logged in
+              ...(userId ? { isLiked: likes && likes.length > 0 } : {}),
+            }),
+          ),
           pagination: {
             total,
             lastPage,

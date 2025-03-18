@@ -11,6 +11,21 @@ export const fetchNewestProducts = createBaseElysia().get(
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
 
+      // Check if user is logged in (optional)
+      let userId = null;
+      if (session?.value) {
+        try {
+          const { user } = await validateSessionToken(session.value);
+          if (user) {
+            userId = user.id;
+          }
+        } catch (error) {
+          // Silently continue if session validation fails
+          // This ensures the endpoint still works for unauthenticated users
+          log.error("Session validation error:", error);
+        }
+      }
+
       // Fetch newest products sorted by creation date
       const [products, total] = await Promise.all([
         db.product.findMany({
@@ -53,6 +68,19 @@ export const fetchNewestProducts = createBaseElysia().get(
                 likes: true,
               },
             },
+            // Include likes only if user is logged in
+            ...(userId
+              ? {
+                  likes: {
+                    where: {
+                      userId: userId,
+                    },
+                    select: {
+                      id: true,
+                    },
+                  },
+                }
+              : {}),
           },
           orderBy: {
             createdAt: "desc", // Sort by most recent first
@@ -74,11 +102,14 @@ export const fetchNewestProducts = createBaseElysia().get(
         status: "success",
         message: "Newest products retrieved successfully",
         data: {
-          items: products.map(({ _count, tags: productTags, ...product }) => ({
-            ...product,
-            tags: productTags.map(({ tag }) => tag),
-            likesCount: _count.likes,
-          })),
+          items: products.map(
+            ({ _count, tags: productTags, likes, ...product }) => ({
+              ...product,
+              tags: productTags.map(({ tag }) => tag),
+              likesCount: _count.likes,
+              ...(userId ? { isLiked: likes && likes.length > 0 } : {}),
+            }),
+          ),
           pagination: {
             total,
             lastPage,

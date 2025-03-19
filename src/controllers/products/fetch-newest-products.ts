@@ -1,10 +1,11 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
+import { validateSessionToken } from "../../lib/auth";
 
 export const fetchNewestProducts = createBaseElysia().get(
   "/products/newest",
-  async ({ set, log, query }) => {
+  async ({ set, log, query, cookie: { session } }) => {
     try {
       const { page = "1", limit = "10" } = query;
       const currentPage = parseInt(page);

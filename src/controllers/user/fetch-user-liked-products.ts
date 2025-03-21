@@ -1,16 +1,28 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
+import { validateSessionToken } from "../../lib/auth";
 
 export const fetchUserLikedProducts = createBaseElysia().get(
   "/:id/likes",
-  async ({ set, log, params, query }) => {
+  async ({ set, log, params, query, cookie: { session } }) => {
     try {
       const { id } = params;
       const { page = "1", limit = "10" } = query;
       const currentPage = parseInt(page);
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
+
+      let loggedInUserId: string | undefined = undefined;
+      if (session && session.value) {
+        try {
+          const { user } = await validateSessionToken(session.value);
+          loggedInUserId = user?.id;
+        } catch (error) {
+          // Session validation failed but we continue without user context
+          log.warn("Session validation failed");
+        }
+      }
 
       const [products, total] = await Promise.all([
         db.product.findMany({
@@ -52,6 +64,19 @@ export const fetchUserLikedProducts = createBaseElysia().get(
                 likes: true,
               },
             },
+            // Include likes for the logged-in user if available
+            ...(loggedInUserId
+              ? {
+                  likes: {
+                    where: {
+                      userId: loggedInUserId,
+                    },
+                    select: {
+                      id: true,
+                    },
+                  },
+                }
+              : {}),
           },
           skip,
           take: perPage,
@@ -77,9 +102,11 @@ export const fetchUserLikedProducts = createBaseElysia().get(
         status: "success",
         message: "Liked products retrieved successfully",
         data: {
-          items: products.map(({ _count, ...product }) => ({
+          items: products.map(({ _count, likes, ...product }) => ({
             ...product,
             likesCount: _count.likes,
+            // Add isLiked field only if user is logged in
+            ...(loggedInUserId ? { isLiked: likes && likes.length > 0 } : {}),
           })),
           pagination: {
             total,

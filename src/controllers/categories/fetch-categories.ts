@@ -6,7 +6,7 @@ export const fetchCategories = createBaseElysia().get(
   "",
   async ({ log, set }) => {
     try {
-      const categories = db.category.findMany({});
+      const categories = await db.category.findMany({});
 
       set.status = "OK";
       return {
@@ -28,10 +28,12 @@ export const fetchCategories = createBaseElysia().get(
       status: t.Enum({ success: "success", error: "error" }),
       message: t.String(),
       data: t.Optional(
-        t.Object({
-          id: t.String(),
-          name: t.String(),
-        }),
+        t.Array(
+          t.Object({
+            id: t.String(),
+            name: t.String(),
+          }),
+        ),
       ),
     }),
     detail: {

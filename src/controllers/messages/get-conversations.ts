@@ -2,14 +2,14 @@ import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { validateSessionToken } from "../../lib/auth";
 import { db } from "../../lib/db";
+import { Prisma } from "@prisma/client";
 
-// Get all conversations for the current user (for sidebar)
 export const getConversations = createBaseElysia().get(
   "/conversations",
   async ({ set, log, cookie: { session }, query }) => {
     try {
       if (!session.value) {
-        set.status = "Bad Request";
+        set.status = 400;
         return { status: "error", message: "Session not found" };
       }
 
@@ -18,69 +18,89 @@ export const getConversations = createBaseElysia().get(
       );
 
       if (!dbSession || !user) {
-        set.status = "Unauthorized";
+        set.status = 401;
         return { status: "error", message: "Invalid session" };
       }
 
-      // Find all unique users the current user has exchanged messages with
-      const conversations = await db.$queryRaw`
-        WITH conversation_partners AS (
-          SELECT
-            CASE 
-              WHEN "senderId" = ${user.id} THEN "receiverId"
-              ELSE "senderId"
-            END AS partner_id,
-            MAX("createdAt") as last_message_time
-          FROM "Message"
-          WHERE "senderId" = ${user.id} OR "receiverId" = ${user.id}
-          GROUP BY partner_id
-          ORDER BY last_message_time DESC
-          ${query.limit ? `LIMIT ${parseInt(query.limit)}` : ""}
-        )
+      const conversations = await db.conversation.findMany({
+        where: {
+          OR: [{ memberOneId: user.id }, { memberTwoId: user.id }],
+        },
+        include: {
+          memberOne: {
+            select: {
+              id: true,
+              name: true,
+              userName: true,
+              imageUrl: true,
+            },
+          },
+          memberTwo: {
+            select: {
+              id: true,
+              name: true,
+              userName: true,
+              imageUrl: true,
+            },
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: "desc" },
+            select: {
+              content: true,
+              createdAt: true,
+              isRead: true,
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+        take: query.limit ? parseInt(query.limit) : undefined,
+      });
 
-        SELECT 
-          u.id, 
-          u.name, 
-          u.userName, 
-          u.imageUrl,
-          (
-            SELECT content 
-            FROM "Message" m
-            WHERE (m."senderId" = ${user.id} AND m."receiverId" = u.id) 
-              OR (m."receiverId" = ${user.id} AND m."senderId" = u.id)
-            ORDER BY m."createdAt" DESC
-            LIMIT 1
-          ) as last_message,
-          (
-            SELECT "createdAt" 
-            FROM "Message" m
-            WHERE (m."senderId" = ${user.id} AND m."receiverId" = u.id) 
-              OR (m."receiverId" = ${user.id} AND m."senderId" = u.id)
-            ORDER BY m."createdAt" DESC
-            LIMIT 1
-          ) as last_message_time,
-          (
-            SELECT COUNT(*) 
-            FROM "Message" m
-            WHERE m."senderId" = u.id 
-              AND m."receiverId" = ${user.id}
-              AND m."isRead" = false
-          ) as unread_count
-        FROM "User" u
-        JOIN conversation_partners cp ON u.id = cp.partner_id
-        ORDER BY last_message_time DESC
-      `;
+      // Transform the data to match previous response structure
+      const transformedConversations = conversations.map((conv) => {
+        // Determine the other member and last message
+        const otherMember =
+          conv.memberOneId === user.id ? conv.memberTwo : conv.memberOne;
+        const lastMessage = conv.messages[0];
+
+        // Count unread messages
+        const unreadCount = conv.messages.filter((m) => !m.isRead).length;
+
+        return {
+          id: otherMember.id,
+          name: otherMember.name,
+          userName: otherMember.userName,
+          imageUrl: otherMember.imageUrl,
+          last_message: lastMessage?.content,
+          last_message_time: lastMessage?.createdAt,
+          unread_count: unreadCount,
+        };
+      });
 
       return {
         status: "success",
-        data: conversations,
+        data: transformedConversations,
       };
     } catch (error) {
-      log.error("get conversations error:", error);
+      log.error("Conversations fetch error:", error);
+
+      // More detailed error logging
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        log.error("Prisma Error Code:", error.code);
+        log.error("Prisma Error Meta:", error.meta);
+      }
+
       set.status = 500;
       return {
         status: "error",
         message: "An error occurred while fetching conversations",
+        // Include error details in development
+        ...(process.env.NODE_ENV === "development" && {
+          details: error instanceof Error ? error.message : "Unknown error",
+        }),
       };
     }
   },

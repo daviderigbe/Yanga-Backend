@@ -17,7 +17,8 @@
     "@oslojs/encoding": "^1.1.0",
     "@prisma/client": "6.2.1",
     "elysia": "latest",
-    "pino-pretty": "^13.0.0"
+    "pino-pretty": "^13.0.0",
+    "redis": "^4.7.0"
   },
   "devDependencies": {
     "bun-types": "latest",

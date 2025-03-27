@@ -11,11 +11,9 @@ export const sendMessage = createBaseElysia().post(
         set.status = "Bad Request";
         return { status: "error", message: "Session not found" };
       }
-
       const { session: dbSession, user } = await validateSessionToken(
         session.value,
       );
-
       if (!dbSession || !user) {
         set.status = "Unauthorized";
         return { status: "error", message: "Invalid session" };
@@ -25,20 +23,51 @@ export const sendMessage = createBaseElysia().post(
       const receiver = await db.user.findUnique({
         where: { id: body.receiverId },
       });
-
       if (!receiver) {
         set.status = "Not Found";
         return { status: "error", message: "Receiver not found" };
+      }
+
+      // Find or create a conversation between the two users
+      let conversation = await db.conversation.findFirst({
+        where: {
+          OR: [
+            {
+              memberOneId: user.id,
+              memberTwoId: body.receiverId,
+            },
+            {
+              memberOneId: body.receiverId,
+              memberTwoId: user.id,
+            },
+          ],
+        },
+      });
+
+      // If no conversation exists, create a new one
+      if (!conversation) {
+        conversation = await db.conversation.create({
+          data: {
+            memberOneId: user.id,
+            memberTwoId: body.receiverId,
+          },
+        });
       }
 
       // Create the message
       const message = await db.message.create({
         data: {
           senderId: user.id,
-          receiverId: body.receiverId,
-          productId: body.productId,
+          conversationId: conversation.id,
           content: body.content,
+          // Optional product reference
+          ...(body.productId ? { productId: body.productId } : {}),
           isRead: false,
+        },
+        include: {
+          sender: true,
+          conversation: true,
+          product: body.productId ? true : false,
         },
       });
 
@@ -75,7 +104,7 @@ export const sendMessage = createBaseElysia().post(
     detail: {
       tags: ["Messages"],
       summary: "Send message",
-      description: "Send a message to another user",
+      description: "Send a message to another user within a conversation",
     },
   },
 );

@@ -11,20 +11,30 @@ export const getUnreadCount = createBaseElysia().get(
         set.status = "Bad Request";
         return { status: "error", message: "Session not found" };
       }
-
       const { session: dbSession, user } = await validateSessionToken(
         session.value,
       );
-
       if (!dbSession || !user) {
         set.status = "Unauthorized";
         return { status: "error", message: "Invalid session" };
       }
 
-      // Count all unread messages for the current user
+      // Count unread messages across conversations where the user is a member
       const count = await db.message.count({
         where: {
-          receiverId: user.id,
+          OR: [
+            {
+              conversation: {
+                memberOneId: user.id,
+              },
+            },
+            {
+              conversation: {
+                memberTwoId: user.id,
+              },
+            },
+          ],
+          senderId: { not: user.id },
           isRead: false,
         },
       });

@@ -8,51 +8,63 @@ export const getConversationMessages = createBaseElysia().get(
   async ({ set, log, cookie: { session }, params, query }) => {
     try {
       if (!session.value) {
-        set.status = "Bad Request";
+        set.status = 400;
         return { status: "error", message: "Session not found" };
       }
-
       const { session: dbSession, user } = await validateSessionToken(
         session.value,
       );
-
       if (!dbSession || !user) {
-        set.status = "Unauthorized";
+        set.status = 401;
         return { status: "error", message: "Invalid session" };
       }
-
       // Verify the other user exists
       const otherUser = await db.user.findUnique({
         where: { id: params.userId },
         select: { id: true, name: true, userName: true, imageUrl: true },
       });
-
       if (!otherUser) {
-        set.status = "Not Found";
+        set.status = 404;
         return { status: "error", message: "User not found" };
       }
+      // Find or create conversation
+      const conversation = await db.conversation.upsert({
+        where: {
+          memberOneId_memberTwoId: {
+            memberOneId: user.id < params.userId ? user.id : params.userId,
+            memberTwoId: user.id < params.userId ? params.userId : user.id,
+          },
+        },
+        update: {},
+        create: {
+          memberOneId: user.id < params.userId ? user.id : params.userId,
+          memberTwoId: user.id < params.userId ? params.userId : user.id,
+        },
+        select: { id: true },
+      });
 
-      // Get messages between the current user and the specified user
+      // Parse query parameters with default values and type conversion
+      const limit = query.limit ? parseInt(query.limit, 10) : 50;
+      const skip = query.skip ? parseInt(query.skip, 10) : 0;
+
+      // Get messages for this conversation
       const messages = await db.message.findMany({
         where: {
-          OR: [
-            { senderId: user.id, receiverId: params.userId },
-            { senderId: params.userId, receiverId: user.id },
-          ],
+          conversationId: conversation.id,
         },
         orderBy: {
           createdAt: "asc",
         },
-        skip: query.skip ? parseInt(query.skip) : 0,
-        take: query.limit ? parseInt(query.limit) : 50,
+        skip,
+        take: limit,
       });
 
-      // Mark all unread messages as read
+      // Mark all unread messages as read if requested
       if (query.markAsRead === "true") {
         await db.message.updateMany({
           where: {
+            conversationId: conversation.id,
             senderId: params.userId,
-            receiverId: user.id,
             isRead: false,
           },
           data: {
@@ -66,6 +78,7 @@ export const getConversationMessages = createBaseElysia().get(
         data: {
           messages,
           user: otherUser,
+          conversationId: conversation.id,
         },
       };
     } catch (error) {
@@ -74,6 +87,9 @@ export const getConversationMessages = createBaseElysia().get(
       return {
         status: "error",
         message: "An error occurred while fetching messages",
+        ...(process.env.NODE_ENV === "development" && {
+          details: error instanceof Error ? error.message : "Unknown error",
+        }),
       };
     }
   },

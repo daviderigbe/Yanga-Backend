@@ -11,21 +11,40 @@ export const markMessagesAsRead = createBaseElysia().put(
         set.status = "Bad Request";
         return { status: "error", message: "Session not found" };
       }
-
       const { session: dbSession, user } = await validateSessionToken(
         session.value,
       );
-
       if (!dbSession || !user) {
         set.status = "Unauthorized";
         return { status: "error", message: "Invalid session" };
       }
 
-      // Mark all messages from the specified user as read
+      // Find the conversation between the current user and the specified user
+      const conversation = await db.conversation.findFirst({
+        where: {
+          OR: [
+            {
+              memberOneId: user.id,
+              memberTwoId: params.userId,
+            },
+            {
+              memberOneId: params.userId,
+              memberTwoId: user.id,
+            },
+          ],
+        },
+      });
+
+      if (!conversation) {
+        set.status = "Not Found";
+        return { status: "error", message: "Conversation not found" };
+      }
+
+      // Mark all unread messages in this conversation sent by the other user as read
       const result = await db.message.updateMany({
         where: {
+          conversationId: conversation.id,
           senderId: params.userId,
-          receiverId: user.id,
           isRead: false,
         },
         data: {

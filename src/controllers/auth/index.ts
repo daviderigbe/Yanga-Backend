@@ -3,6 +3,7 @@ import { signin } from "./signin";
 import { createBaseElysia } from "../../base";
 import { logout } from "./signout";
 import { checkAuth } from "./me";
+import { forgotPasswordRoutes } from "./forgot-password";
 
 const appSwagger = {
   detail: {
@@ -17,4 +18,5 @@ export const authRoutes = createBaseElysia({
   .use(logout)
   .use(signup)
   .use(signin)
-  .use(checkAuth);
+  .use(checkAuth)
+  .use(forgotPasswordRoutes);

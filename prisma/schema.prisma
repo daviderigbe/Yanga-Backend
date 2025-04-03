@@ -11,6 +11,7 @@ datasource db {
 model User {
   id              String   @id @default(uuid())
   email           String   @unique
+  emailVerified   Boolean  @default(false)
   password        String? // Optional because of social login
   name            String?
   imageUrl        String?
@@ -28,8 +29,8 @@ model User {
   appleId  String?   @unique
 
   // Shop settings
-  enableBundleBuying Boolean   @default(false)
-  unavailableUntil   DateTime?
+  enableBundleBuying Boolean @default(false)
+  userUnavailable    Boolean @default(false)
 
   // Addresses
   addresses Address[]
@@ -58,7 +59,8 @@ model User {
   // Conversations
   conversationsAsMemberOne Conversation[] @relation("ConversationMemberOne")
   conversationsAsMemberTwo Conversation[] @relation("ConversationMemberTwo")
-  Message                  Message[]
+  message                  Message[]
+  productViews             ProductView[]
 }
 
 model Session {
@@ -97,11 +99,12 @@ model Product {
   orderItems OrderItem[]
 
   // Timestamps and Metadata
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  isAvailable Boolean    @default(true)
-  cartItem    CartItem[]
-  messages    Message[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  isAvailable  Boolean       @default(true)
+  cartItem     CartItem[]
+  messages     Message[]
+  productViews ProductView[]
 }
 
 model ProductImage {
@@ -110,6 +113,19 @@ model ProductImage {
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   order     Int     @default(0) // For image ordering
+}
+
+model ProductView {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  viewedAt  DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+  @@index([viewedAt])
 }
 
 model Category {

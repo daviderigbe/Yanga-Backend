@@ -54,6 +54,7 @@ const SingleProductResponseSchema = t.Object({
       ),
       likesCount: t.Number(),
       isLiked: t.Boolean(), // Add isLiked field to the schema
+      viewCount: t.Number(), // Add viewCount field to the schema
       images: t.Array(
         t.Object({
           id: t.String(),
@@ -166,6 +167,7 @@ export const fetchProductById = createBaseElysia().get(
               },
             },
           },
+          productViews: true, // Include product views
         },
       });
 
@@ -176,6 +178,14 @@ export const fetchProductById = createBaseElysia().get(
           message: "Product not found",
         };
       }
+
+      // Record the product view
+      await db.productView.create({
+        data: {
+          productId: id,
+          userId: loggedInUserId, // This will be null for unauthenticated users
+        },
+      });
 
       // Calculate seller's average rating
       const sellerReviews = product.seller.products.flatMap((p) => p.reviews);
@@ -190,12 +200,16 @@ export const fetchProductById = createBaseElysia().get(
         ? product.likes.some((like) => like.userId === loggedInUserId)
         : false;
 
+      // Count total product views
+      const viewCount = product.productViews.length;
+
       // Transform the data to match the expected format
       const transformedProduct = {
         ...product,
         tags: product.tags.map(({ tag }) => tag),
         likesCount: product.likes.length,
         isLiked, // Add the isLiked field
+        viewCount, // Add the viewCount field
         seller: {
           id: product.seller.id,
           name: product.seller.name,
@@ -234,7 +248,7 @@ export const fetchProductById = createBaseElysia().get(
       tags: ["Products"],
       summary: "Fetch product by id",
       description:
-        "Fetch a single product by ID with all its related data, including detailed seller information and whether the logged-in user has liked it",
+        "Fetch a single product by ID with all its related data, including detailed seller information, whether the logged-in user has liked it, and recording a product view",
     },
   },
 );

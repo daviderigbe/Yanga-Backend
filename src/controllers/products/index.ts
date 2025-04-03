@@ -5,6 +5,7 @@ import { createProductReview } from "./create-product-review";
 import { deleteProduct } from "./delete-product";
 import { editProductDetails } from "./edit-product-details";
 import { fetchBestSellingProducts } from "./fetch-best-selling";
+import { fetchMostLiked } from "./fetch-most-liked-products";
 import { fetchNewestProducts } from "./fetch-newest-products";
 import { fetchProducts } from "./fetch-products";
 import { fetchProductsByCategory } from "./fetch-products-by-category";
@@ -41,4 +42,5 @@ export const productRoutes = createBaseElysia({
   .use(createProductReview)
   .use(fetchBestSellingProducts)
   // .use(fetchNewestProducts)
-  .use(fetchNewArrivals);
+  .use(fetchNewArrivals)
+  .use(fetchMostLiked);

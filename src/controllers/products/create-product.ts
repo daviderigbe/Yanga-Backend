@@ -36,13 +36,29 @@ export const createProduct = createBaseElysia().post(
         gender,
         color,
         condition,
-        tagIds,
+        tags,
         basePrice,
         discountPercent,
         images,
         status = "DRAFT",
         brand,
       } = body;
+
+      const tagData = [];
+      for (const tagName of tags) {
+        // Check if tag exists, create if not
+        let tag = await db.tag.findUnique({
+          where: { name: tagName },
+        });
+
+        if (!tag) {
+          tag = await db.tag.create({
+            data: { name: tagName },
+          });
+        }
+
+        tagData.push({ tagId: tag.id });
+      }
 
       // Create the product with its basic information
       const product = await db.product.create({
@@ -68,7 +84,7 @@ export const createProduct = createBaseElysia().post(
           },
           // Connect the tags
           tags: {
-            create: tagIds.map((tagId: string) => ({
+            create: tagData.map(({ tagId }) => ({
               tag: {
                 connect: {
                   id: tagId,
@@ -134,7 +150,7 @@ export const createProduct = createBaseElysia().post(
       gender: t.Enum(Gender),
       color: t.String(),
       condition: t.Enum(Condition),
-      tagIds: t.Array(t.String()),
+      tags: t.Array(t.String()), // Changed from tagIds to tag names
       basePrice: t.Number(),
       discountPercent: t.Optional(t.Number()),
       images: t.Array(t.String()),

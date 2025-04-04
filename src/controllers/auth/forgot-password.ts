@@ -102,7 +102,7 @@ export const forgotPasswordRoutes = createBaseElysia({ prefix: "/password" })
       }),
       detail: {
         tags: ["Auth"],
-        summary: "Request password reset",
+        summary: "Request password reset (Forgot password)",
         description:
           "Request a password reset and receive a verification code via email",
       },

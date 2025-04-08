@@ -83,10 +83,10 @@ export function setSessionTokenCookie(
   cookie.set({
     value: token,
     httpOnly: true,
-    sameSite: "none",
+    sameSite: isProduction ? "none" : "lax", // Only use "none" in production
     expires: expiresAt,
     path: "/",
-    secure: isProduction, // Only set secure flag in production
+    secure: isProduction, // Only set secure in production
   });
 }
 
@@ -98,7 +98,7 @@ export function deleteSessionTokenCookie(
   cookie.set({
     value: "",
     httpOnly: true,
-    sameSite: "none",
+    sameSite: isProduction ? "none" : "lax", // Only use "none" in production
     maxAge: 0,
     path: "/",
     secure: isProduction, // Only set secure flag in production

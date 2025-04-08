@@ -1,8 +1,5 @@
-- [] Create a tag if it does not exist yet
-- [] When user is on break blacklist them technically and add that to the DB
+- [x] Create a tag if it does not exist yet
 - [x] new, most liked, trending, on sale api based on product category
 - [] Handle image upload
-- [] Error responses for schema validation
 - [] Add colors api
-- [] phone number to signup
 - [x] unavailable until date

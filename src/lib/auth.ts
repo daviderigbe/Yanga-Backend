@@ -80,13 +80,15 @@ export function setSessionTokenCookie(
 ): void {
   const isProduction = config.NODE_ENV === "production";
 
+  const useSameSiteNone = true; // Set based on your requirements
+
   cookie.set({
     value: token,
     httpOnly: true,
-    sameSite: isProduction ? "none" : "lax", // Only use "none" in production
+    sameSite: useSameSiteNone ? "none" : "lax",
     expires: expiresAt,
     path: "/",
-    secure: isProduction, // Only set secure in production
+    secure: isProduction || useSameSiteNone, // Must be true if SameSite=None
   });
 }
 
@@ -95,13 +97,15 @@ export function deleteSessionTokenCookie(
 ): void {
   const isProduction = config.NODE_ENV === "production";
 
+  const useSameSiteNone = true; // Set based on your requirements
+
   cookie.set({
     value: "",
     httpOnly: true,
-    sameSite: isProduction ? "none" : "lax", // Only use "none" in production
+    sameSite: useSameSiteNone ? "none" : "lax",
     maxAge: 0,
     path: "/",
-    secure: isProduction, // Only set secure flag in production
+    secure: isProduction || useSameSiteNone, // Must be true if SameSite=None
   });
 }
 

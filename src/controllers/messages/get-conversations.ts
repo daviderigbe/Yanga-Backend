@@ -50,6 +50,7 @@ export const getConversations = createBaseElysia().get(
               content: true,
               createdAt: true,
               isRead: true,
+              senderId: true,
             },
           },
         },
@@ -59,34 +60,47 @@ export const getConversations = createBaseElysia().get(
         take: query.limit ? parseInt(query.limit) : undefined,
       });
 
-      // Transform the data to match previous response structure
-      const transformedConversations = conversations.map((conv) => {
-        // Determine the other member and last message
-        const otherMember =
-          conv.memberOneId === user.id ? conv.memberTwo : conv.memberOne;
-        const lastMessage = conv.messages[0];
+      // Get all unread messages count in a separate query for each conversation
+      const conversationsWithUnreadCount = await Promise.all(
+        conversations.map(async (conv) => {
+          // Get the other member's ID
+          const otherMemberId =
+            conv.memberOneId === user.id ? conv.memberTwoId : conv.memberOneId;
 
-        // Count unread messages
-        const unreadCount = conv.messages.filter((m) => !m.isRead).length;
+          // Count unread messages from the other person
+          const unreadCount = await db.message.count({
+            where: {
+              conversationId: conv.id,
+              senderId: otherMemberId, // From the other user
+              isRead: false, // Not read yet
+            },
+          });
 
-        return {
-          id: otherMember.id,
-          name: otherMember.name,
-          userName: otherMember.userName,
-          imageUrl: otherMember.imageUrl,
-          last_message: lastMessage?.content,
-          last_message_time: lastMessage?.createdAt,
-          unread_count: unreadCount,
-        };
-      });
+          // Determine the other member
+          const otherMember =
+            conv.memberOneId === user.id ? conv.memberTwo : conv.memberOne;
+
+          const lastMessage = conv.messages[0];
+
+          return {
+            id: conv.id, // Keep the conversation ID
+            otherMemberId: otherMember.id,
+            name: otherMember.name,
+            userName: otherMember.userName,
+            imageUrl: otherMember.imageUrl,
+            last_message: lastMessage?.content,
+            last_message_time: lastMessage?.createdAt,
+            unread_count: unreadCount,
+          };
+        }),
+      );
 
       return {
         status: "success",
-        data: transformedConversations,
+        data: conversationsWithUnreadCount,
       };
     } catch (error) {
       log.error("Conversations fetch error:", error);
-
       // More detailed error logging
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         log.error("Prisma Error Code:", error.code);

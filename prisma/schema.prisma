@@ -45,8 +45,8 @@ model User {
   reviews        Review[] // Reviews they've written
 
   // Social
-  followers Follow[] @relation("Following")
-  following Follow[] @relation("Followers")
+  followers Follow[] @relation("UserFollowers") // People who follow this user
+  following Follow[] @relation("UserFollowing") // People this user follows
 
   // Messages
   messagesSent Message[] @relation("MessageSender")
@@ -61,6 +61,7 @@ model User {
   conversationsAsMemberTwo Conversation[] @relation("ConversationMemberTwo")
   message                  Message[]
   productViews             ProductView[]
+  Follow                   Follow[]
 }
 
 model Session {
@@ -244,12 +245,16 @@ model SavedCard {
 }
 
 model Follow {
-  id          String   @id @default(uuid())
-  followerId  String
-  followingId String
-  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
-  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id          String @id @default(uuid())
+  followerId  String // The user who is doing the following
+  followingId String // The user who is being followed
+
+  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  User      User?    @relation(fields: [userId], references: [id])
+  userId    String?
 
   @@unique([followerId, followingId])
 }

@@ -2,6 +2,7 @@ import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { validateSessionToken } from "../../lib/auth";
 import { db } from "../../lib/db";
+import { broadcastMessageEvent } from "../../ws/broadcast";
 
 export const sendMessage = createBaseElysia().post(
   "/messages",
@@ -72,12 +73,23 @@ export const sendMessage = createBaseElysia().post(
       });
 
       // Create notification for the receiver
-      await db.notification.create({
+      const notification = await db.notification.create({
         data: {
           userId: body.receiverId,
           type: "NEW_MESSAGE",
           content: `You have a new message from ${user.name || user.userName || "a user"}.`,
           isRead: false,
+        },
+      });
+
+      broadcastMessageEvent({
+        type: "NEW_MESSAGE",
+        from: user.id,
+        to: body.receiverId,
+        conversationId: conversation.id,
+        data: {
+          message,
+          notification,
         },
       });
 

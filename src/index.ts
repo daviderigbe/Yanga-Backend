@@ -9,6 +9,7 @@ import { tagsRoutes } from "./controllers/tags";
 import { categoriesRoutes } from "./controllers/categories";
 import { cartRoutes } from "./controllers/cart";
 import { messagesRoutes } from "./controllers/messages";
+import { wsHandler } from "./ws/handler";
 
 const app = baseElysia()
   .use(cors({}))
@@ -23,6 +24,7 @@ const app = baseElysia()
       },
     }),
   )
+  .use(wsHandler)
   .group("/api", (app) =>
     app
       .use(authRoutes)

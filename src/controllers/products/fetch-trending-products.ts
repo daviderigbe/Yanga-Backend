@@ -39,7 +39,7 @@ export const fetchTrendingProducts = createBaseElysia().get(
       const trendingPeriodStart = new Date();
       trendingPeriodStart.setDate(trendingPeriodStart.getDate() - 7);
 
-      // Build general filters
+      // Build general filters for the count query
       const filters = {
         status: ProductStatus.ACTIVE,
         isAvailable: true,
@@ -59,53 +59,7 @@ export const fetchTrendingProducts = createBaseElysia().get(
           : {}),
       };
 
-      // Build SQL query conditions safely
-      let sqlConditions = ["p.\"status\" = 'ACTIVE'", 'p."isAvailable" = true'];
-      let sqlParams: any[] = [trendingPeriodStart, perPage, skip];
-
-      if (categoryId) {
-        sqlConditions.push('p."categoryId" = $' + (sqlParams.length + 1));
-        sqlParams.push(categoryId);
-      }
-
-      if (gender) {
-        sqlConditions.push('p."gender" = $' + (sqlParams.length + 1));
-        sqlParams.push(gender);
-      }
-
-      if (condition) {
-        sqlConditions.push('p."condition" = $' + (sqlParams.length + 1));
-        sqlParams.push(condition);
-      }
-
-      if (brand) {
-        sqlConditions.push('p."brand" = $' + (sqlParams.length + 1));
-        sqlParams.push(brand);
-      }
-
-      if (color) {
-        sqlConditions.push('p."color" = $' + (sqlParams.length + 1));
-        sqlParams.push(color);
-      }
-
-      if (size) {
-        sqlConditions.push('p."size" = $' + (sqlParams.length + 1));
-        sqlParams.push(size);
-      }
-
-      if (minPrice) {
-        sqlConditions.push('p."basePrice" >= $' + (sqlParams.length + 1));
-        sqlParams.push(parseFloat(minPrice));
-      }
-
-      if (maxPrice) {
-        sqlConditions.push('p."basePrice" <= $' + (sqlParams.length + 1));
-        sqlParams.push(parseFloat(maxPrice));
-      }
-
-      const whereClause = sqlConditions.join(" AND ");
-
-      // Construct the query with safely added conditions
+      // Use Prisma's SQL template literal syntax for better type safety
       const sqlQuery = Prisma.sql`
         SELECT p.*, 
           COUNT(DISTINCT l.id) as like_count,
@@ -113,26 +67,34 @@ export const fetchTrendingProducts = createBaseElysia().get(
           COUNT(DISTINCT c.id) as cart_additions
         FROM "Product" p
         LEFT JOIN "Like" l ON p."id" = l."productId" 
-          AND l."createdAt" >= ${trendingPeriodStart}::timestamp
+          AND l."createdAt" >= ${trendingPeriodStart}
         LEFT JOIN "CartItem" c ON p."id" = c."productId" 
-          AND c."createdAt" >= ${trendingPeriodStart}::timestamp
+          AND c."createdAt" >= ${trendingPeriodStart}
         LEFT JOIN "ProductView" v ON p."id" = v."productId" 
-          AND v."viewedAt" >= ${trendingPeriodStart}::timestamp
-        WHERE ${Prisma.raw(whereClause)}
+          AND v."viewedAt" >= ${trendingPeriodStart}
+        WHERE p."status" = 'ACTIVE' AND p."isAvailable" = true
+        ${categoryId ? Prisma.sql`AND p."categoryId" = ${categoryId}` : Prisma.sql``}
+        ${gender ? Prisma.sql`AND p."gender" = ${gender}` : Prisma.sql``}
+        ${condition ? Prisma.sql`AND p."condition" = ${condition}` : Prisma.sql``}
+        ${brand ? Prisma.sql`AND p."brand" = ${brand}` : Prisma.sql``}
+        ${color ? Prisma.sql`AND p."color" = ${color}` : Prisma.sql``}
+        ${size ? Prisma.sql`AND p."size" = ${size}` : Prisma.sql``}
+        ${minPrice ? Prisma.sql`AND p."basePrice" >= ${parseFloat(minPrice)}` : Prisma.sql``}
+        ${maxPrice ? Prisma.sql`AND p."basePrice" <= ${parseFloat(maxPrice)}` : Prisma.sql``}
         GROUP BY p."id"
         ORDER BY (COUNT(DISTINCT l.id) * 3 + COUNT(DISTINCT c.id) * 2 + COUNT(DISTINCT v.id)) DESC
         LIMIT ${perPage}
         OFFSET ${skip}
       `;
 
-      // Get products with recent activity
+      // Execute queries in parallel for efficiency
       const [products, total] = await Promise.all([
         db.$queryRaw(sqlQuery),
         db.product.count({ where: filters }),
       ]);
 
       // Fetch additional product details
-      const productIds = products.map((p: any) => p.id);
+      const productIds = (products as any[]).map((p) => p.id);
       const productDetails = await db.product.findMany({
         where: {
           id: { in: productIds },
@@ -170,7 +132,9 @@ export const fetchTrendingProducts = createBaseElysia().get(
       // Map and sort products by trending score from raw query
       const trendingProducts = productDetails
         .map((product) => {
-          const trendingData = products.find((p: any) => p.id === product.id);
+          const trendingData = (products as any[]).find(
+            (p) => p.id === product.id,
+          );
           return {
             ...product,
             trendingScore:

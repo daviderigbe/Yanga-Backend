@@ -10,6 +10,7 @@ import { categoriesRoutes } from "./controllers/categories";
 import { cartRoutes } from "./controllers/cart";
 import { messagesRoutes } from "./controllers/messages";
 import { wsHandler } from "./ws/handler";
+import { vendorRoutes } from "./controllers/vendors";
 
 const app = baseElysia()
   .use(cors({}))
@@ -33,7 +34,8 @@ const app = baseElysia()
       .use(tagsRoutes)
       .use(categoriesRoutes)
       .use(cartRoutes)
-      .use(messagesRoutes),
+      .use(messagesRoutes)
+      .use(vendorRoutes),
   );
 
 app.listen(config.PORT);

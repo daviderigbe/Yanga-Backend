@@ -85,10 +85,10 @@ export const editProfile = createBaseElysia().post(
   },
   {
     body: t.Object({
-      name: t.String(),
-      username: t.String(),
-      bio: t.String(),
-      image: t.String(),
+      name: t.Optional(t.String()),
+      username: t.Optional(t.String()),
+      bio: t.Optional(t.String()),
+      image: t.Optional(t.String()),
     }),
     params: t.Object({
       id: t.String(),

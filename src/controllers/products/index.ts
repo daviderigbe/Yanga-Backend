@@ -10,6 +10,7 @@ import { fetchProducts } from "./fetch-products";
 import { fetchProductsByCategory } from "./fetch-products-by-category";
 import { fetchProductsByTag } from "./fetch-products-by-tag";
 import { fetchProductById } from "./fetch-products-details";
+import { fetchFollowedPeopleProducts } from "./fetch-products-from-followed";
 import { fetchProductsOnSale } from "./fetch-products-on-sale";
 import { fetchRecommendedProducts } from "./fetch-recommended-products";
 import { fetchTrendingProducts } from "./fetch-trending-products";
@@ -48,4 +49,5 @@ export const productRoutes = createBaseElysia({
   .use(fetchMostLiked)
   .use(fetchProductsOnSale)
   .use(fetchTrendingProducts)
-  .use(fetchRecommendedProducts);
+  .use(fetchRecommendedProducts)
+  .use(fetchFollowedPeopleProducts);

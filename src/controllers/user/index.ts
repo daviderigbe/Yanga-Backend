@@ -1,5 +1,6 @@
 import { createBaseElysia } from "../../base";
 import { changePassword } from "./change-password";
+import { deactivateAccount } from "./deactivate-account";
 import { editProfile } from "./edit-profile";
 import { fetchUserById } from "./fetch-user";
 import { fetchUserLikedProducts } from "./fetch-user-liked-products";
@@ -7,6 +8,9 @@ import { fetchUserProducts } from "./fetch-user-products";
 import { fetchUserReviews } from "./fetch-user-reviews";
 import { fetchUserSoldProducts } from "./fetch-user-sold-products";
 import { followUser } from "./follow-user";
+import { reactivateAccount } from "./reactivate-account";
+import { toggleBundleBuying } from "./toggle-bundle-buying";
+import { toggleUnavailability } from "./toggle-unavailability";
 import { unfollowUser } from "./unfollow-user";
 
 const appSwagger = {
@@ -27,4 +31,8 @@ export const usersRoutes = createBaseElysia({
   .use(editProfile)
   .use(changePassword)
   .use(followUser)
-  .use(unfollowUser);
+  .use(unfollowUser)
+  .use(toggleBundleBuying)
+  .use(toggleUnavailability)
+  .use(deactivateAccount)
+  .use(reactivateAccount);

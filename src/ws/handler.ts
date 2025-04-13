@@ -4,17 +4,16 @@ import {
   getConnection,
   removeConnection,
 } from "./connections";
-import { validateSessionToken } from "../lib/auth";
+import { db } from "../lib/db";
 import { createBaseElysia } from "../base";
 
 export const wsHandler = createBaseElysia().ws("/ws/messages", {
   // Handle new WebSocket connections
   async open(ws) {
     try {
-      // Extract user ID and session token from query params
-      const sessionToken = ws.data.query.token as string;
-
-      if (!sessionToken) {
+      // Extract WebSocket token from query params
+      const wsToken = ws.data.query.token as string;
+      if (!wsToken) {
         ws.send(
           JSON.stringify({
             type: "error",
@@ -25,14 +24,18 @@ export const wsHandler = createBaseElysia().ws("/ws/messages", {
         return;
       }
 
-      // Validate the session token
-      const { session, user } = await validateSessionToken(sessionToken);
+      // Validate the WebSocket token
+      const tokenRecord = await db.wsToken.findUnique({
+        where: { token: wsToken },
+        include: { user: true },
+      });
 
-      if (!session || !user) {
+      // Check if token exists and is valid
+      if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
         ws.send(
           JSON.stringify({
             type: "error",
-            message: "Invalid session",
+            message: "Invalid or expired token",
           }),
         );
         ws.close();
@@ -40,13 +43,13 @@ export const wsHandler = createBaseElysia().ws("/ws/messages", {
       }
 
       // Store the connection with the user ID
-      addConnection(user.id, ws);
+      addConnection(tokenRecord.user.id, ws);
 
       // Send connection confirmation
       ws.send(
         JSON.stringify({
           type: "connected",
-          userId: user.id,
+          userId: tokenRecord.user.id,
           timestamp: Date.now(),
         }),
       );
@@ -63,18 +66,15 @@ export const wsHandler = createBaseElysia().ws("/ws/messages", {
   },
 
   // Handle client messages (e.g., typing indicators)
-  // Handle client messages (e.g., typing indicators)
   message(ws, message) {
     try {
       // Parse the message if it's a string
       if (typeof message === "string") {
         message = JSON.parse(message);
       }
-
       if (typeof message !== "object" || message === null) {
         return;
       }
-
       // Handle different message types
       if ("type" in message) {
         // For TYPING or other user-to-user events

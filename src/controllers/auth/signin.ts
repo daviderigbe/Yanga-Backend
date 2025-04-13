@@ -6,13 +6,13 @@ import {
   generateSessionToken,
   setSessionTokenCookie,
 } from "../../lib/auth";
+import crypto from "crypto";
 
 export const signin = createBaseElysia().post(
   "signin",
   async ({ body, set, log, cookie: { session } }) => {
     try {
       const { email, password } = body;
-
       const existingUser = await db.user.findUnique({
         where: {
           email,
@@ -21,6 +21,7 @@ export const signin = createBaseElysia().post(
           id: true,
           email: true,
           name: true,
+          userName: true,
           password: true,
         },
       });
@@ -40,7 +41,7 @@ export const signin = createBaseElysia().post(
       );
 
       if (!matchPassword) {
-        log.error("User not found.");
+        log.error("Password incorrect.");
         set.status = "Bad Request";
         return {
           status: "error",
@@ -48,25 +49,37 @@ export const signin = createBaseElysia().post(
         } as ApiResponse<null>;
       }
 
+      // Generate and store session token (for API requests)
       const token = generateSessionToken();
-      const dbSesssion = await createSession(token, existingUser.id);
-      setSessionTokenCookie(session, token, dbSesssion.expiresAt);
+      const dbSession = await createSession(token, existingUser.id);
+      setSessionTokenCookie(session, token, dbSession.expiresAt);
+
+      // Generate WebSocket token (for real-time connections)
+      const wsToken = crypto.randomUUID();
+
+      // Store WebSocket token with 24-hour expiry
+      await db.wsToken.create({
+        data: {
+          token: wsToken,
+          userId: existingUser.id,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      });
 
       const { password: _, ...userWithoutPassword } = existingUser;
 
       set.status = 200;
-
       return {
         status: "success",
         message: "User logged in successfully",
         data: {
           user: userWithoutPassword,
+          wsToken, // Include WebSocket token in the response
         },
-      } as ApiResponse<{ user: typeof userWithoutPassword }>;
+      } as ApiResponse<{ user: typeof userWithoutPassword; wsToken: string }>;
     } catch (error) {
       log.error("Signin error:", error);
       set.status = 500;
-
       return {
         status: "error",
         message: "An error occurred during sign in",
@@ -84,6 +97,21 @@ export const signin = createBaseElysia().post(
         maxLength: 64,
         error: "Password must be between 8 and 64 characters long.",
       }),
+    }),
+    response: t.Object({
+      status: t.Union([t.Literal("success"), t.Literal("error")]),
+      message: t.String(),
+      data: t.Optional(
+        t.Object({
+          user: t.Object({
+            id: t.String(),
+            email: t.String(),
+            name: t.String(),
+            userName: t.Optional(t.String()),
+          }),
+          wsToken: t.Optional(t.String()),
+        }),
+      ),
     }),
     detail: {
       tags: ["Auth"],

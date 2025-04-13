@@ -9,19 +9,21 @@ datasource db {
 }
 
 model User {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  emailVerified   Boolean  @default(false)
+  id              String    @id @default(uuid())
+  email           String    @unique
+  emailVerified   Boolean   @default(false)
   password        String? // Optional because of social login
   name            String?
   imageUrl        String?
   bio             String?
-  userName        String?  @unique
+  userName        String?   @unique
   bankCode        String?
   bankName        String?
   bankAccountName String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isDeactivated   Boolean   @default(false)
+  deactivatedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Authentication
   sessions Session[]

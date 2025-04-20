@@ -1,5 +1,6 @@
 import { createBaseElysia } from "../../base";
 import { fetchTopVendors } from "./fetch-top-vendors";
+import { fetchVendors } from "./fetch-vendors";
 
 const appSwagger = {
   detail: {
@@ -10,4 +11,6 @@ const appSwagger = {
 export const vendorRoutes = createBaseElysia({
   prefix: "/vendors",
   detail: appSwagger.detail,
-}).use(fetchTopVendors);
+})
+  .use(fetchTopVendors)
+  .use(fetchVendors);

@@ -6,7 +6,6 @@ import {
   generateSessionToken,
   setSessionTokenCookie,
 } from "../../lib/auth";
-import crypto from "crypto";
 
 export const signin = createBaseElysia().post(
   "signin",
@@ -54,18 +53,6 @@ export const signin = createBaseElysia().post(
       const dbSession = await createSession(token, existingUser.id);
       setSessionTokenCookie(session, token, dbSession.expiresAt);
 
-      // Generate WebSocket token (for real-time connections)
-      const wsToken = crypto.randomUUID();
-
-      // Store WebSocket token with 24-hour expiry
-      await db.wsToken.create({
-        data: {
-          token: wsToken,
-          userId: existingUser.id,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        },
-      });
-
       const { password: _, ...userWithoutPassword } = existingUser;
 
       set.status = 200;
@@ -74,7 +61,6 @@ export const signin = createBaseElysia().post(
         message: "User logged in successfully",
         data: {
           user: userWithoutPassword,
-          wsToken, // Include WebSocket token in the response
         },
       } as ApiResponse<{ user: typeof userWithoutPassword; wsToken: string }>;
     } catch (error) {
@@ -109,7 +95,6 @@ export const signin = createBaseElysia().post(
             name: t.String(),
             userName: t.Optional(t.String()),
           }),
-          wsToken: t.Optional(t.String()),
         }),
       ),
     }),

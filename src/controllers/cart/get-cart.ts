@@ -1,4 +1,3 @@
-// import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { validateSessionToken } from "../../lib/auth";
 import { db } from "../../lib/db";
@@ -72,9 +71,35 @@ export const getCart = createBaseElysia().get(
         });
       }
 
+      // Group cart items by seller
+      const groupedBySellerItems = cart.items.reduce((result, item) => {
+        const sellerId = item.product.seller.id;
+
+        if (!result[sellerId]) {
+          result[sellerId] = {
+            seller: item.product.seller,
+            items: [],
+          };
+        }
+
+        result[sellerId].items.push(item);
+        return result;
+      }, {});
+
+      // Convert to array structure
+      const sellerGroups = Object.values(groupedBySellerItems);
+
       return {
         status: "success",
-        data: cart,
+        data: {
+          id: cart.id,
+          userId: cart.userId,
+          createdAt: cart.createdAt,
+          updatedAt: cart.updatedAt,
+          sellerGroups: sellerGroups,
+          // Keep the original items array for backward compatibility
+          items: cart.items,
+        },
       };
     } catch (error) {
       log.error("get cart error:", error);
@@ -89,7 +114,8 @@ export const getCart = createBaseElysia().get(
     detail: {
       tags: ["Cart"],
       summary: "Get user's cart",
-      description: "Retrieve the current user's shopping cart with all items",
+      description:
+        "Retrieve the current user's shopping cart with items grouped by seller",
     },
   },
 );

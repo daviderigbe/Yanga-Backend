@@ -1,18 +1,19 @@
-import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { validateSessionToken } from "../../lib/auth";
 import { db } from "../../lib/db";
 import { Gender, ProductStatus, Condition } from "@prisma/client";
+import { t } from "elysia";
 
 export const createProduct = createBaseElysia().post(
   "/create",
   async ({ log, set, body, cookie: { session } }) => {
     try {
+      // 1. Authentication check
       if (!session.value) {
-        set.status = "Bad Request";
+        set.status = 401;
         return {
           status: "error",
-          message: "Session not found",
+          message: "Authentication required",
         };
       }
 
@@ -21,13 +22,22 @@ export const createProduct = createBaseElysia().post(
       );
 
       if (!dbSession || !user) {
-        set.status = "Unauthorized";
+        set.status = 401;
         return {
           status: "error",
           message: "Invalid session",
         };
       }
 
+      if (user.isDeactivated) {
+        set.status = 403;
+        return {
+          status: "error",
+          message: "Account is deactivated",
+        };
+      }
+
+      // 2. Extract and validate request data
       const {
         title,
         description,
@@ -36,124 +46,228 @@ export const createProduct = createBaseElysia().post(
         gender,
         color,
         condition,
-        tags,
+        tags = [],
         basePrice,
-        discountPercent,
-        images,
+        discountPercent = null,
+        images = [],
         status = "DRAFT",
-        brand,
+        brand = null,
       } = body;
 
-      const tagData = [];
-      for (const tagName of tags) {
-        // Check if tag exists, create if not
-        let tag = await db.tag.findUnique({
-          where: { name: tagName },
-        });
-
-        if (!tag) {
-          tag = await db.tag.create({
-            data: { name: tagName },
-          });
-        }
-
-        tagData.push({ tagId: tag.id });
-      }
-
-      // Create the product with its basic information
-      const product = await db.product.create({
-        data: {
-          title,
-          description,
-          categoryId,
-          sellerId: user.id,
-          size,
-          gender,
-          color,
-          condition,
-          basePrice,
-          discountPercent,
-          status,
-          brand,
-          // Create the product images
-          images: {
-            create: images.map((url: string, index: number) => ({
-              url,
-              order: index,
-            })),
-          },
-          // Connect the tags
-          tags: {
-            create: tagData.map(({ tagId }) => ({
-              tag: {
-                connect: {
-                  id: tagId,
-                },
-              },
-            })),
-          },
-        },
-        include: {
-          images: {
-            orderBy: {
-              order: "asc",
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          seller: {
-            select: {
-              id: true,
-              name: true,
-              userName: true,
-              imageUrl: true,
-            },
-          },
-          tags: {
-            include: {
-              tag: true,
-            },
-          },
-        },
+      // 3. Validate category exists
+      const categoryExists = await db.category.findUnique({
+        where: { id: categoryId },
       });
 
+      if (!categoryExists) {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Invalid category",
+        };
+      }
+
+      // 4. Validate images array
+      if (images.length === 0) {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "At least one product image is required",
+        };
+      }
+
+      // 5. Check for valid price
+      if (basePrice <= 0) {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Base price must be greater than zero",
+        };
+      }
+
+      // 6. Check valid discount percentage
+      if (
+        discountPercent !== null &&
+        (discountPercent < 0 || discountPercent > 100)
+      ) {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Discount percentage must be between 0 and 100",
+        };
+      }
+
+      // 7. Process tags with efficient upsert operations
+      const tagObjects = await Promise.all(
+        tags.map(async (tagName) => {
+          const normalizedTag = tagName.trim().toLowerCase();
+          if (!normalizedTag) return null;
+
+          // Use upsert to create or find in one operation
+          const tag = await db.tag.upsert({
+            where: { name: normalizedTag },
+            update: {}, // No updates needed
+            create: { name: normalizedTag },
+          });
+
+          return { tagId: tag.id };
+        }),
+      );
+
+      // Filter out any null values from empty tags
+      const validTagData = tagObjects.filter((tag) => tag !== null);
+
+      // 8. Transaction to ensure data consistency
+      const product = await db.$transaction(async (tx) => {
+        // Create the product with its basic information
+        const newProduct = await tx.product.create({
+          data: {
+            title: title.trim(),
+            description: description.trim(),
+            categoryId,
+            sellerId: user.id,
+            size: size.trim(),
+            gender,
+            color: color.trim(),
+            condition,
+            basePrice,
+            discountPercent,
+            status,
+            brand: brand?.trim() || null,
+            // Create the product images
+            images: {
+              create: images.map((url, index) => ({
+                url,
+                order: index,
+              })),
+            },
+            // Connect the tags
+            tags: {
+              create: validTagData.map(({ tagId }) => ({
+                tag: {
+                  connect: {
+                    id: tagId,
+                  },
+                },
+              })),
+            },
+          },
+          include: {
+            images: {
+              orderBy: {
+                order: "asc",
+              },
+            },
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                userName: true,
+                imageUrl: true,
+              },
+            },
+            tags: {
+              include: {
+                tag: true,
+              },
+            },
+          },
+        });
+
+        // Create a notification for followers if product is active
+        if (status === "ACTIVE") {
+          // Find all followers of this user
+          const followers = await tx.follow.findMany({
+            where: {
+              followingId: user.id,
+            },
+            select: {
+              followerId: true,
+            },
+          });
+
+          // Create notifications for followers
+          if (followers.length > 0) {
+            await tx.notification.createMany({
+              data: followers.map((follower) => ({
+                userId: follower.followerId,
+                type: "NEW_PRODUCT_FROM_FOLLOWING",
+                content: `${user.name || user.userName || "A seller"} just listed a new product: "${title}"`,
+              })),
+            });
+          }
+        }
+
+        return newProduct;
+      });
+
+      // 9. Format response data
+      const formattedProduct = {
+        ...product,
+        tags: product.tags.map((tagRelation) => tagRelation.tag),
+        finalPrice: calculateFinalPrice(
+          product.basePrice,
+          product.discountPercent,
+        ),
+      };
+
+      // 10. Return appropriate response
       return {
         status: "success",
         message:
           status === "DRAFT"
             ? "Product saved as draft"
             : "Product created successfully",
-        data: {
-          ...product,
-          tags: product.tags.map((tag) => tag.tag),
-        },
+        data: formattedProduct,
       };
     } catch (error) {
-      log.error(error);
+      // 11. Improved error handling
+      log.error("Product creation error:", error);
+
+      // Handle specific database errors
+      if (error.code === "P2002") {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Duplicate entry detected",
+        };
+      }
+
+      if (error.code === "P2003") {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Invalid reference ID",
+        };
+      }
+
+      // Generic server error
       set.status = 500;
       return {
         status: "error",
-        message: "Failed to create product",
+        message: "Failed to create product. Please try again later.",
       };
     }
   },
   {
     body: t.Object({
-      title: t.String(),
-      description: t.String(),
+      title: t.String({ minLength: 3, maxLength: 100 }),
+      description: t.String({ minLength: 10 }),
       categoryId: t.String(),
       size: t.String(),
       gender: t.Enum(Gender),
       color: t.String(),
       condition: t.Enum(Condition),
-      tags: t.Array(t.String()), // Changed from tagIds to tag names
-      basePrice: t.Number(),
-      discountPercent: t.Optional(t.Number()),
-      images: t.Array(t.String()),
+      tags: t.Array(t.String()),
+      basePrice: t.Number({ minimum: 0.01 }),
+      discountPercent: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
+      images: t.Array(t.String({ format: "uri" })),
       status: t.Optional(t.Enum(ProductStatus)),
       brand: t.Optional(t.String()),
     }),
@@ -162,6 +276,33 @@ export const createProduct = createBaseElysia().post(
       summary: "Create a new product",
       description:
         "Create a new product with images, category, tags, and other details",
+      responses: {
+        200: {
+          description: "Product created successfully",
+        },
+        400: {
+          description: "Bad request - invalid input data",
+        },
+        401: {
+          description: "Unauthorized - missing or invalid session",
+        },
+        500: {
+          description: "Server error",
+        },
+      },
     },
   },
 );
+
+// Helper function to calculate final price after discount
+function calculateFinalPrice(
+  basePrice: number,
+  discountPercent: number | null,
+): number {
+  if (discountPercent === null || discountPercent === 0) {
+    return basePrice;
+  }
+
+  const discountMultiplier = 1 - discountPercent / 100;
+  return Number((basePrice * discountMultiplier).toFixed(2));
+}

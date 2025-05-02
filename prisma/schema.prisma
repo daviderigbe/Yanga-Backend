@@ -52,28 +52,36 @@ model User {
 
   // Messages
   messagesSent Message[] @relation("MessageSender")
-  // messagesReceived Message[] @relation("MessageReceiver")
 
   // Notifications
   notifications Notification[]
-  Cart          Cart?
+  cart          Cart?
 
   // Conversations
   conversationsAsMemberOne Conversation[] @relation("ConversationMemberOne")
   conversationsAsMemberTwo Conversation[] @relation("ConversationMemberTwo")
-  message                  Message[]
-  productViews             ProductView[]
-  Follow                   Follow[]
-  wsToken                  WsToken[]
+
+  // Product views
+  productViews ProductView[]
+
+  // Web socket tokens
+  wsToken WsToken[]
+
+  @@index([email])
+  @@index([userName])
 }
 
+/// Session information for authenticated users
 model Session {
   id        String   @id
   userId    String
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
+/// WebSocket connection tokens
 model WsToken {
   id        String   @id @default(uuid())
   token     String   @unique
@@ -86,6 +94,7 @@ model WsToken {
   @@index([token])
 }
 
+/// Product listings in the marketplace
 model Product {
   id              String        @id @default(uuid())
   sellerId        String
@@ -121,16 +130,26 @@ model Product {
   cartItem     CartItem[]
   messages     Message[]
   productViews ProductView[]
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([gender])
+  @@index([condition])
 }
 
+/// Images associated with a product
 model ProductImage {
   id        String  @id @default(uuid())
   url       String
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   order     Int     @default(0) // For image ordering
+
+  @@index([productId])
 }
 
+/// Tracks product view events
 model ProductView {
   id        String   @id @default(uuid())
   productId String
@@ -144,18 +163,25 @@ model ProductView {
   @@index([viewedAt])
 }
 
+/// Product categories
 model Category {
   id       String    @id @default(uuid())
   name     String    @unique
   products Product[]
+
+  @@index([name])
 }
 
+/// Product tags for improved searching and filtering
 model Tag {
   id       String           @id @default(uuid())
   name     String           @unique // casual, modern, vintage, etc.
   products TagsOnProducts[]
+
+  @@index([name])
 }
 
+/// Junction table for the many-to-many relationship between products and tags
 model TagsOnProducts {
   productId String
   tagId     String
@@ -163,8 +189,11 @@ model TagsOnProducts {
   tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([productId, tagId])
+  @@index([productId])
+  @@index([tagId])
 }
 
+/// Product likes/favorites from users
 model Like {
   id        String   @id @default(uuid())
   userId    String
@@ -174,44 +203,61 @@ model Like {
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
 }
 
+/// Product reviews and ratings
 model Review {
   id          String   @id @default(uuid())
-  rating      Int // 1-5
+  rating      Int
   description String?
   userId      String
   productId   String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([productId])
 }
 
+/// Orders placed by users
 model Order {
   id           String      @id @default(uuid())
   buyerId      String
-  buyer        User        @relation(fields: [buyerId], references: [id])
+  buyer        User        @relation(fields: [buyerId], references: [id], onDelete: Restrict)
   items        OrderItem[]
   status       OrderStatus @default(PENDING)
   isBundle     Boolean     @default(false)
-  totalAmount  Decimal
+  totalAmount  Decimal     @db.Decimal(10, 2)
   discountCode String?
   addressId    String
-  address      Address     @relation(fields: [addressId], references: [id])
+  address      Address     @relation(fields: [addressId], references: [id], onDelete: Restrict)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@index([buyerId])
+  @@index([addressId])
+  @@index([status])
+  @@index([createdAt])
 }
 
+/// Individual items within an order
 model OrderItem {
   id        String  @id @default(uuid())
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity  Int
-  price     Decimal // Price at time of purchase
+  price     Decimal @db.Decimal(10, 2) // Price at time of purchase
+
+  @@index([orderId])
+  @@index([productId])
 }
 
+/// Shopping cart for users
 model Cart {
   id        String     @id @default(uuid())
   userId    String     @unique
@@ -219,8 +265,11 @@ model Cart {
   items     CartItem[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  @@index([userId])
 }
 
+/// Items in a user's shopping cart
 model CartItem {
   id        String   @id @default(uuid())
   cartId    String
@@ -232,8 +281,11 @@ model CartItem {
   updatedAt DateTime @updatedAt
 
   @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
 }
 
+/// User addresses for shipping and billing
 model Address {
   id        String      @id @default(uuid())
   userId    String
@@ -246,8 +298,11 @@ model Address {
   zipCode   String
   orders    Order[]
   isDefault Boolean     @default(false)
+
+  @@index([userId])
 }
 
+/// Saved payment methods
 model SavedCard {
   id          String  @id @default(uuid())
   userId      String
@@ -257,23 +312,25 @@ model SavedCard {
   expiryMonth Int
   expiryYear  Int
   isDefault   Boolean @default(false)
+
+  @@index([userId])
 }
 
+/// User follow relationships
 model Follow {
-  id          String @id @default(uuid())
+  id          String   @id @default(uuid())
   followerId  String // The user who is doing the following
   followingId String // The user who is being followed
-
-  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
-  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  User      User?    @relation(fields: [userId], references: [id])
-  userId    String?
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
+/// Conversations between users
 model Conversation {
   id          String    @id @default(uuid())
   memberOneId String
@@ -285,9 +342,11 @@ model Conversation {
   updatedAt   DateTime  @updatedAt
 
   @@unique([memberOneId, memberTwoId])
+  @@index([memberOneId])
   @@index([memberTwoId])
 }
 
+/// Messages sent between users
 model Message {
   id             String       @id @default(uuid())
   content        String
@@ -296,21 +355,18 @@ model Message {
   sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  // Optional product reference (if message is about a specific product)
-  productId String?
-  product   Product? @relation(fields: [productId], references: [id])
-
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  User      User?    @relation(fields: [userId], references: [id])
-  userId    String?
+  productId      String?
+  product        Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
 
   @@index([senderId])
   @@index([conversationId])
   @@index([productId])
+  @@index([createdAt])
 }
 
+/// User notifications
 model Notification {
   id        String           @id @default(uuid())
   userId    String
@@ -319,8 +375,13 @@ model Notification {
   content   String
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
 
+/// Discount codes for orders
 model DiscountCode {
   id         String   @id @default(uuid())
   code       String   @unique
@@ -330,6 +391,10 @@ model DiscountCode {
   maxUses    Int?
   usedCount  Int      @default(0)
   isActive   Boolean  @default(true)
+
+  @@index([code])
+  @@index([isActive])
+  @@index([validUntil])
 }
 
 enum ProductStatus {

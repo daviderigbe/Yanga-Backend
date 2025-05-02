@@ -7,82 +7,149 @@ export const getConversationMessages = createBaseElysia().get(
   "/conversations/:userId",
   async ({ set, log, cookie: { session }, params, query }) => {
     try {
+      // 1. Session validation
       if (!session.value) {
-        set.status = 400;
-        return { status: "error", message: "Session not found" };
+        set.status = 401;
+        return { status: "error", message: "Authentication required" };
       }
+
       const { session: dbSession, user } = await validateSessionToken(
         session.value,
       );
+
       if (!dbSession || !user) {
         set.status = 401;
         return { status: "error", message: "Invalid session" };
       }
-      // Verify the other user exists
+
+      // 2. Target user verification
       const otherUser = await db.user.findUnique({
-        where: { id: params.userId },
-        select: { id: true, name: true, userName: true, imageUrl: true },
+        where: {
+          id: params.userId,
+          isDeactivated: false, // Only include active users
+        },
+        select: {
+          id: true,
+          name: true,
+          userName: true,
+          imageUrl: true,
+        },
       });
+
       if (!otherUser) {
         set.status = 404;
-        return { status: "error", message: "User not found" };
+        return { status: "error", message: "User not found or is deactivated" };
       }
-      // Find or create conversation
-      const conversation = await db.conversation.upsert({
-        where: {
-          memberOneId_memberTwoId: {
-            memberOneId: user.id < params.userId ? user.id : params.userId,
-            memberTwoId: user.id < params.userId ? params.userId : user.id,
+
+      // 3. Prevent self-conversation
+      if (user.id === params.userId) {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Cannot create conversation with yourself",
+        };
+      }
+
+      // 4. Consistent member ordering logic for conversation lookup
+      const [memberOneId, memberTwoId] =
+        user.id < params.userId
+          ? [user.id, params.userId]
+          : [params.userId, user.id];
+
+      // 5. Parse and validate query parameters
+      const limit = Math.min(
+        query.limit ? parseInt(query.limit, 10) : 50,
+        100, // Maximum limit to prevent excessive queries
+      );
+
+      const skip = Math.max(
+        query.skip ? parseInt(query.skip, 10) : 0,
+        0, // Ensure skip is never negative
+      );
+
+      const markAsRead = query.markAsRead === "true";
+
+      // 6. Use a transaction for related operations
+      const result = await db.$transaction(async (tx) => {
+        // Find or create conversation
+        const conversation = await tx.conversation.upsert({
+          where: {
+            memberOneId_memberTwoId: {
+              memberOneId,
+              memberTwoId,
+            },
           },
-        },
-        update: {},
-        create: {
-          memberOneId: user.id < params.userId ? user.id : params.userId,
-          memberTwoId: user.id < params.userId ? params.userId : user.id,
-        },
-        select: { id: true },
-      });
+          update: {
+            updatedAt: new Date(), // Update conversation timestamp when viewed
+          },
+          create: {
+            memberOneId,
+            memberTwoId,
+          },
+          select: { id: true },
+        });
 
-      // Parse query parameters with default values and type conversion
-      const limit = query.limit ? parseInt(query.limit, 10) : 50;
-      const skip = query.skip ? parseInt(query.skip, 10) : 0;
-
-      // Get messages for this conversation
-      const messages = await db.message.findMany({
-        where: {
-          conversationId: conversation.id,
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-        skip,
-        take: limit,
-      });
-
-      // Mark all unread messages as read if requested
-      if (query.markAsRead === "true") {
-        await db.message.updateMany({
+        // Get messages for this conversation
+        const messages = await tx.message.findMany({
           where: {
             conversationId: conversation.id,
-            senderId: params.userId,
-            isRead: false,
           },
-          data: {
-            isRead: true,
+          orderBy: {
+            createdAt: "desc", // Get newest messages first
           },
+          skip,
+          take: limit,
         });
-      }
+
+        // Mark unread messages as read if requested
+        if (markAsRead) {
+          await tx.message.updateMany({
+            where: {
+              conversationId: conversation.id,
+              senderId: params.userId,
+              isRead: false,
+            },
+            data: {
+              isRead: true,
+            },
+          });
+        }
+
+        // Count unread messages (optional enhancement)
+        const unreadCount = markAsRead
+          ? 0
+          : await tx.message.count({
+              where: {
+                conversationId: conversation.id,
+                senderId: params.userId,
+                isRead: false,
+              },
+            });
+
+        return {
+          messages: messages.reverse(), // Reverse to get ascending order after desc query
+          user: otherUser,
+          conversationId: conversation.id,
+          unreadCount,
+        };
+      });
 
       return {
         status: "success",
-        data: {
-          messages,
-          user: otherUser,
-          conversationId: conversation.id,
-        },
+        data: result,
       };
     } catch (error) {
       log.error("get conversation messages error:", error);
+
+      // Handle specific error types
+      if (error instanceof SyntaxError) {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Invalid parameters",
+        };
+      }
+
       set.status = 500;
       return {
         status: "error",
@@ -106,7 +173,7 @@ export const getConversationMessages = createBaseElysia().get(
       tags: ["Messages"],
       summary: "Get conversation messages",
       description:
-        "Retrieve messages between the current user and a specific user",
+        "Retrieve messages between the current user and a specific user, creating a conversation if it doesn't exist",
     },
   },
 );

@@ -12,6 +12,7 @@ import { messagesRoutes } from "./controllers/messages";
 import { wsHandler } from "./ws/handler";
 import { vendorRoutes } from "./controllers/vendors";
 import { wsRoutes } from "./controllers/ws";
+import { searchRoutes } from "./controllers/search";
 
 const app = baseElysia()
   .use(cors({}))
@@ -37,7 +38,8 @@ const app = baseElysia()
       .use(cartRoutes)
       .use(messagesRoutes)
       .use(vendorRoutes)
-      .use(wsRoutes),
+      .use(wsRoutes)
+      .use(searchRoutes),
   );
 
 app.listen(config.PORT);

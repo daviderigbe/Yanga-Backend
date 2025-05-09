@@ -14,12 +14,7 @@ interface VerificationData {
 
 // Create Redis client
 const redisClient = createClient({
-  username: "default",
-  password: Bun.env.REDIS_PASSWORD as string,
-  socket: {
-    host: Bun.env.REDIS_HOST as string,
-    port: 12822,
-  },
+  url: Bun.env.REDIS_URL as string,
 });
 
 // Connect to Redis

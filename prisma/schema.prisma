@@ -108,7 +108,10 @@ model Product {
   size            String // XS, S, M, L, XL, 40, 41, etc.
   gender          Gender
   color           String
-  brand           String?
+
+  // Updated brand relationship
+  brandId String?
+  brand   Brand?  @relation(fields: [brandId], references: [id])
 
   // Categories and Tags
   category   Category         @relation(fields: [categoryId], references: [id])
@@ -133,6 +136,7 @@ model Product {
 
   @@index([sellerId])
   @@index([categoryId])
+  @@index([brandId]) // Add index for brand relationship
   @@index([status])
   @@index([gender])
   @@index([condition])
@@ -161,6 +165,18 @@ model ProductView {
   @@index([productId])
   @@index([userId])
   @@index([viewedAt])
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  logoUrl     String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([name])
 }
 
 /// Product categories

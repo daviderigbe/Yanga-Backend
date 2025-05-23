@@ -3,7 +3,7 @@ import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
 import { validateSessionToken } from "../../lib/auth";
 
-// Define the response type for better type safety
+// Updated response schema to include brand details
 const ProductResponseSchema = t.Object({
   status: t.Enum({ success: "success", error: "error" }),
   message: t.String(),
@@ -33,7 +33,13 @@ const ProductResponseSchema = t.Object({
           size: t.String(),
           gender: t.Enum({ MEN: "MEN", WOMEN: "WOMEN", UNISEX: "UNISEX" }),
           color: t.String(),
-          brand: t.Optional(t.String()),
+          brand: t.Optional(
+            t.Object({
+              id: t.String(),
+              name: t.String(),
+              logoUrl: t.Optional(t.String()),
+            }),
+          ),
           category: t.Object({
             id: t.String(),
             name: t.String(),
@@ -81,7 +87,7 @@ export const fetchProducts = createBaseElysia().get(
         categoryId,
         minPrice,
         maxPrice,
-        brand,
+        brandId, // Added brandId for filtering
         color,
         size,
         status = "ACTIVE",
@@ -115,12 +121,13 @@ export const fetchProducts = createBaseElysia().get(
               OR: [
                 { title: { contains: search, mode: "insensitive" } },
                 { description: { contains: search, mode: "insensitive" } },
+                { brand: { name: { contains: search, mode: "insensitive" } } }, // Search by brand name
               ],
             }),
             ...(gender && { gender }),
             ...(condition && { condition }),
             ...(categoryId && { categoryId }),
-            ...(brand && { brand }),
+            ...(brandId && { brandId }), // Filter by brand ID
             ...(color && { color: { contains: color, mode: "insensitive" } }),
             ...(size && { size }),
             ...(minPrice && { basePrice: { gte: parseFloat(minPrice) } }),
@@ -134,6 +141,14 @@ export const fetchProducts = createBaseElysia().get(
               select: {
                 id: true,
                 name: true,
+              },
+            },
+            brand: {
+              // Include brand details
+              select: {
+                id: true,
+                name: true,
+                logoUrl: true,
               },
             },
             images: {
@@ -173,12 +188,13 @@ export const fetchProducts = createBaseElysia().get(
               OR: [
                 { title: { contains: search, mode: "insensitive" } },
                 { description: { contains: search, mode: "insensitive" } },
+                { brand: { name: { contains: search, mode: "insensitive" } } }, // Search by brand name
               ],
             }),
             ...(gender && { gender }),
             ...(condition && { condition }),
             ...(categoryId && { categoryId }),
-            ...(brand && { brand }),
+            ...(brandId && { brandId }), // Filter by brand ID
             ...(color && { color: { contains: color, mode: "insensitive" } }),
             ...(size && { size }),
             ...(minPrice && { basePrice: { gte: parseFloat(minPrice) } }),
@@ -247,9 +263,9 @@ export const fetchProducts = createBaseElysia().get(
         }),
       ),
       categoryId: t.Optional(t.String()),
+      brandId: t.Optional(t.String()), // Added brandId as a query parameter
       minPrice: t.Optional(t.String()),
       maxPrice: t.Optional(t.String()),
-      brand: t.Optional(t.String()),
       color: t.Optional(t.String()),
       size: t.Optional(t.String()),
       status: t.Optional(

@@ -13,6 +13,7 @@ import { wsHandler } from "./ws/handler";
 import { vendorRoutes } from "./controllers/vendors";
 import { wsRoutes } from "./controllers/ws";
 import { searchRoutes } from "./controllers/search";
+import { brandRoutes } from "./controllers/brands";
 
 const app = baseElysia()
   .use(cors({}))
@@ -38,6 +39,7 @@ const app = baseElysia()
       .use(cartRoutes)
       .use(messagesRoutes)
       .use(vendorRoutes)
+      .use(brandRoutes)
       .use(wsRoutes)
       .use(searchRoutes),
   );

@@ -67,6 +67,9 @@ model User {
   // Web socket tokens
   wsToken WsToken[]
 
+  // Brand ownership
+  ownedBrands Brand[] @relation("BrandOwner")
+
   @@index([email])
   @@index([userName])
 }
@@ -136,7 +139,7 @@ model Product {
 
   @@index([sellerId])
   @@index([categoryId])
-  @@index([brandId]) // Add index for brand relationship
+  @@index([brandId])
   @@index([status])
   @@index([gender])
   @@index([condition])
@@ -168,15 +171,45 @@ model ProductView {
 }
 
 model Brand {
-  id          String    @id @default(uuid())
-  name        String    @unique
-  description String?
-  logoUrl     String?
-  products    Product[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                  String  @id @default(uuid())
+  name                String  @unique
+  description         String?
+  logoUrl             String?
+  contactAddress      String?
+  businessPhoneNumber String?
+
+  // Brand ownership and verification
+  ownerId           String
+  owner             User        @relation("BrandOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status            BrandStatus @default(PENDING)
+  verificationNotes String? // Notes from admin during verification
+
+  // Certification documents
+  certificationFiles BrandCertification[]
+
+  products   Product[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  verifiedAt DateTime? // When the brand was verified
+  verifiedBy String? // Admin user ID who verified
 
   @@index([name])
+  @@index([ownerId])
+  @@index([status])
+}
+
+/// Brand certification documents
+model BrandCertification {
+  id         String   @id @default(uuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  fileUrl    String
+  fileName   String
+  fileType   String // pdf, jpg, png, etc.
+  fileSize   Int // in bytes
+  uploadedAt DateTime @default(now())
+
+  @@index([brandId])
 }
 
 /// Product categories
@@ -456,4 +489,12 @@ enum NotificationType {
   ORDER_STATUS
   NEW_PRODUCT_FROM_FOLLOWING
   PRICE_DROP
+  BRAND_VERIFICATION_STATUS
+}
+
+enum BrandStatus {
+  PENDING // Awaiting verification
+  VERIFIED // Approved by admin
+  REJECTED // Rejected by admin
+  DRAFT // Saved as draft by user
 }

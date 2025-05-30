@@ -4,6 +4,259 @@ import { db } from "../../lib/db";
 import { validateSessionToken } from "../../lib/auth";
 import { Prisma } from "@prisma/client";
 
+// Helper function to safely parse integers
+const parseIntSafely = (
+  value: string | undefined,
+  defaultValue: number,
+): number => {
+  if (!value) return defaultValue;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? defaultValue : Math.max(1, parsed);
+};
+
+// Helper function to safely parse floats
+const parseFloatSafely = (value: string | undefined): number | undefined => {
+  if (!value) return undefined;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? undefined : parsed;
+};
+
+// Build product search filter
+const buildProductFilter = (params: {
+  searchQuery: string;
+  category?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  condition?: string;
+  gender?: string;
+}): Prisma.ProductWhereInput => {
+  const { searchQuery, category, minPrice, maxPrice, condition, gender } =
+    params;
+
+  const filter: Prisma.ProductWhereInput = {
+    status: "ACTIVE",
+    isAvailable: true,
+  };
+
+  // Add search conditions
+  if (searchQuery.trim()) {
+    filter.OR = [
+      { title: { contains: searchQuery, mode: "insensitive" } },
+      { description: { contains: searchQuery, mode: "insensitive" } },
+      { brand: { name: { contains: searchQuery, mode: "insensitive" } } },
+      { category: { name: { contains: searchQuery, mode: "insensitive" } } },
+      {
+        tags: {
+          some: {
+            tag: { name: { contains: searchQuery, mode: "insensitive" } },
+          },
+        },
+      },
+    ];
+  }
+
+  // Add filters
+  if (category) {
+    filter.category = { name: { equals: category, mode: "insensitive" } };
+  }
+
+  const minPriceValue = parseFloatSafely(minPrice);
+  const maxPriceValue = parseFloatSafely(maxPrice);
+
+  if (minPriceValue !== undefined || maxPriceValue !== undefined) {
+    filter.basePrice = {};
+    if (minPriceValue !== undefined) filter.basePrice.gte = minPriceValue;
+    if (maxPriceValue !== undefined) filter.basePrice.lte = maxPriceValue;
+  }
+
+  if (condition) filter.condition = condition as any;
+  if (gender) filter.gender = gender as any;
+
+  return filter;
+};
+
+// Build user search filter
+const buildUserFilter = (searchQuery: string): Prisma.UserWhereInput => {
+  const filter: Prisma.UserWhereInput = {
+    isDeactivated: false,
+  };
+
+  if (searchQuery.trim()) {
+    filter.OR = [
+      { name: { contains: searchQuery, mode: "insensitive" } },
+      { userName: { contains: searchQuery, mode: "insensitive" } },
+    ];
+  }
+
+  return filter;
+};
+
+// Define types for better type safety
+type ProductSearchResult = {
+  id: string;
+  title: string;
+  description: string;
+  basePrice: any;
+  condition: string;
+  size: string;
+  gender: string;
+  color: string;
+  createdAt: Date;
+  updatedAt: Date;
+  isAvailable: boolean;
+  sellerId: string;
+  categoryId: string;
+  brandId: string | null;
+  discountPercent: number | null;
+  status: string;
+  images: { id: string; url: string; order: number }[];
+  category: { id: string; name: string };
+  brand: { id: string; name: string } | null;
+  seller: {
+    id: string;
+    name: string | null;
+    userName: string | null;
+    imageUrl: string | null;
+  };
+  tags: { id: string; name: string }[];
+  likesCount: number;
+  isLiked?: boolean;
+};
+
+type UserSearchResult = {
+  id: string;
+  name: string | null;
+  userName: string | null;
+  imageUrl: string | null;
+  bio: string | null;
+  productsCount: number;
+  followersCount: number;
+  followingCount: number;
+  isFollowing?: boolean;
+};
+
+// Search products function
+const searchProducts = async (params: {
+  filter: Prisma.ProductWhereInput;
+  skip: number;
+  take: number;
+  userId?: string;
+}): Promise<{ items: ProductSearchResult[]; total: number }> => {
+  const { filter, skip, take, userId } = params;
+
+  const [products, total] = await Promise.all([
+    db.product.findMany({
+      where: filter,
+      include: {
+        images: {
+          orderBy: { order: "asc" },
+          select: { id: true, url: true, order: true },
+        },
+        category: {
+          select: { id: true, name: true },
+        },
+        brand: {
+          select: { id: true, name: true },
+        },
+        seller: {
+          select: { id: true, name: true, userName: true, imageUrl: true },
+        },
+        tags: {
+          include: { tag: true },
+        },
+        _count: {
+          select: { likes: true },
+        },
+        ...(userId
+          ? {
+              likes: {
+                where: { userId },
+                select: { id: true },
+              },
+            }
+          : {}),
+      },
+      orderBy: [{ createdAt: "desc" }],
+      skip,
+      take,
+    }),
+    db.product.count({ where: filter }),
+  ]);
+
+  return {
+    items: products.map((product) => {
+      const { _count, tags, likes, ...rest } = product;
+      return {
+        ...rest,
+        tags: tags.map(({ tag }) => tag),
+        likesCount: _count.likes,
+        ...(userId ? { isLiked: likes && likes.length > 0 } : {}),
+      };
+    }),
+    total,
+  };
+};
+
+// Search users function
+const searchUsers = async (params: {
+  filter: Prisma.UserWhereInput;
+  skip: number;
+  take: number;
+  userId?: string;
+}): Promise<{ items: UserSearchResult[]; total: number }> => {
+  const { filter, skip, take, userId } = params;
+
+  const [users, total] = await Promise.all([
+    db.user.findMany({
+      where: filter,
+      select: {
+        id: true,
+        name: true,
+        userName: true,
+        imageUrl: true,
+        bio: true,
+        _count: {
+          select: {
+            products: {
+              where: { status: "ACTIVE", isAvailable: true },
+            },
+            followers: true,
+            following: true,
+          },
+        },
+        ...(userId
+          ? {
+              followers: {
+                where: { followerId: userId },
+                select: { id: true },
+              },
+            }
+          : {}),
+      },
+      orderBy: {
+        followers: { _count: "desc" },
+      },
+      skip,
+      take,
+    }),
+    db.user.count({ where: filter }),
+  ]);
+
+  return {
+    items: users.map((user) => {
+      const { _count, followers, ...rest } = user;
+      return {
+        ...rest,
+        productsCount: _count.products,
+        followersCount: _count.followers,
+        followingCount: _count.following,
+        ...(userId ? { isFollowing: followers && followers.length > 0 } : {}),
+      };
+    }),
+    total,
+  };
+};
+
 export const searchEndpoint = createBaseElysia().get(
   "",
   async ({ set, log, query, cookie: { session } }) => {
@@ -20,276 +273,87 @@ export const searchEndpoint = createBaseElysia().get(
         gender,
       } = query;
 
+      // Validate and parse parameters
       const searchQuery = q.trim();
-      const currentPage = parseInt(page);
-      const perPage = parseInt(limit);
+      const currentPage = parseIntSafely(page, 1);
+      const perPage = Math.min(parseIntSafely(limit, 10), 50); // Cap at 50
       const skip = (currentPage - 1) * perPage;
 
-      // Check if user is logged in (optional)
-      let userId = null;
+      // Validate session
+      let userId: string | null = null;
       if (session?.value) {
         try {
           const { user } = await validateSessionToken(session.value);
-          if (user) {
-            userId = user.id;
-          }
+          userId = user?.id || null;
         } catch (error) {
-          // Silently continue if session validation fails
           log.error("Session validation error:", error);
         }
       }
 
-      // Define results object
+      // Initialize results with proper typing
       const results: {
-        products: { items: any[]; total: number };
-        users: { items: any[]; total: number };
+        products: { items: ProductSearchResult[]; total: number };
+        users: { items: UserSearchResult[]; total: number };
       } = {
         products: { items: [], total: 0 },
         users: { items: [], total: 0 },
       };
 
-      // Determine what to search based on type parameter
+      // Determine search types
       const searchTypes = type ? [type] : ["products", "users"];
 
-      // Construct search queries in parallel
-      const searchPromises = [];
-
-      // PRODUCTS SEARCH
+      // Execute searches based on type
       if (searchTypes.includes("products")) {
-        // Build product filter
-        const productFilter: Prisma.ProductWhereInput = {
-          AND: [{ status: "ACTIVE" }, { isAvailable: true }],
-        };
+        const productFilter = buildProductFilter({
+          searchQuery,
+          category,
+          minPrice,
+          maxPrice,
+          condition,
+          gender,
+        });
 
-        // Add search term filter
-        if (searchQuery) {
-          productFilter.AND.push({
-            OR: [
-              { title: { contains: searchQuery, mode: "insensitive" } },
-              { description: { contains: searchQuery, mode: "insensitive" } },
-              { brand: { contains: searchQuery, mode: "insensitive" } },
-              {
-                category: {
-                  name: { contains: searchQuery, mode: "insensitive" },
-                },
-              },
-              {
-                tags: {
-                  some: {
-                    tag: {
-                      name: { contains: searchQuery, mode: "insensitive" },
-                    },
-                  },
-                },
-              },
-            ],
-          });
-        }
-
-        // Add optional filters
-        if (category) {
-          productFilter.AND.push({
-            category: { name: { equals: category, mode: "insensitive" } },
-          });
-        }
-
-        if (minPrice) {
-          productFilter.AND.push({ basePrice: { gte: parseFloat(minPrice) } });
-        }
-
-        if (maxPrice) {
-          productFilter.AND.push({ basePrice: { lte: parseFloat(maxPrice) } });
-        }
-
-        if (condition) {
-          productFilter.AND.push({ condition });
-        }
-
-        if (gender) {
-          productFilter.AND.push({ gender });
-        }
-
-        // Products search promise
-        searchPromises.push(
-          Promise.all([
-            db.product.findMany({
-              where: productFilter,
-              include: {
-                images: {
-                  orderBy: { order: "asc" },
-                  select: { id: true, url: true, order: true },
-                },
-                category: {
-                  select: { id: true, name: true },
-                },
-                seller: {
-                  select: {
-                    id: true,
-                    name: true,
-                    userName: true,
-                    imageUrl: true,
-                  },
-                },
-                tags: {
-                  include: { tag: true },
-                },
-                _count: {
-                  select: { likes: true },
-                },
-                ...(userId
-                  ? {
-                      likes: {
-                        where: { userId },
-                        select: { id: true },
-                      },
-                    }
-                  : {}),
-              },
-              orderBy: [
-                // First by creation date (newest first)
-                { createdAt: "desc" },
-              ],
-              skip,
-              take: perPage,
-            }),
-            db.product.count({ where: productFilter }),
-          ]).then(([products, total]) => {
-            results.products.items = products.map((product) => {
-              const {
-                _count,
-                tags: productTags,
-                likes,
-                ...restProduct
-              } = product;
-              return {
-                ...restProduct,
-                tags: productTags.map(({ tag }) => tag),
-                likesCount: _count.likes,
-                ...(userId ? { isLiked: likes && likes.length > 0 } : {}),
-              };
-            });
-            results.products.total = total;
-          }),
-        );
+        results.products = await searchProducts({
+          filter: productFilter,
+          skip,
+          take: perPage,
+          userId: userId || undefined,
+        });
       }
 
-      // USERS SEARCH
       if (searchTypes.includes("users")) {
-        // Users search promise
-        searchPromises.push(
-          Promise.all([
-            db.user.findMany({
-              where: {
-                AND: [
-                  { isDeactivated: false },
-                  {
-                    OR: [
-                      { name: { contains: searchQuery, mode: "insensitive" } },
-                      {
-                        userName: {
-                          contains: searchQuery,
-                          mode: "insensitive",
-                        },
-                      },
-                    ],
-                  },
-                ],
-              },
-              select: {
-                id: true,
-                name: true,
-                userName: true,
-                imageUrl: true,
-                bio: true,
-                _count: {
-                  select: {
-                    products: {
-                      where: { status: "ACTIVE", isAvailable: true },
-                    },
-                    followers: true,
-                    following: true,
-                  },
-                },
-                ...(userId
-                  ? {
-                      followers: {
-                        where: { followerId: userId },
-                        select: { id: true },
-                      },
-                    }
-                  : {}),
-              },
-              orderBy: [
-                // By followers count (most popular first)
-                { followers: { _count: "desc" } },
-              ],
-              skip,
-              take: perPage,
-            }),
-            db.user.count({
-              where: {
-                AND: [
-                  { isDeactivated: false },
-                  {
-                    OR: [
-                      { name: { contains: searchQuery, mode: "insensitive" } },
-                      {
-                        userName: {
-                          contains: searchQuery,
-                          mode: "insensitive",
-                        },
-                      },
-                    ],
-                  },
-                ],
-              },
-            }),
-          ]).then(([users, total]) => {
-            results.users.items = users.map((user) => {
-              const { _count, followers, ...restUser } = user;
-              return {
-                ...restUser,
-                productsCount: _count.products,
-                followersCount: _count.followers,
-                followingCount: _count.following,
-                ...(userId
-                  ? { isFollowing: followers && followers.length > 0 }
-                  : {}),
-              };
-            });
-            results.users.total = total;
-          }),
-        );
+        const userFilter = buildUserFilter(searchQuery);
+
+        results.users = await searchUsers({
+          filter: userFilter,
+          skip,
+          take: perPage,
+          userId: userId || undefined,
+        });
       }
 
-      // Execute all search promises
-      await Promise.all(searchPromises);
-
-      // Determine which result type has the most matches
+      // Determine primary result type
       let primaryResultType: "products" | "users" = "products";
-      let maxResults = results.products.total;
-
-      if (results.users.total > maxResults) {
-        primaryResultType = "users";
-        maxResults = results.users.total;
+      if (type) {
+        primaryResultType = type as "products" | "users";
+      } else {
+        primaryResultType =
+          results.users.total > results.products.total ? "users" : "products";
       }
 
-      // Calculate pagination for the primary result type
-      const total = results[primaryResultType].total;
-      const lastPage = Math.ceil(total / perPage);
+      const totalForPagination = results[primaryResultType].total;
+      const lastPage = Math.ceil(totalForPagination / perPage);
 
-      // Return search results
       return {
         status: "success",
         message: "Search completed successfully",
         data: {
           query: searchQuery,
-          primaryResultType:
-            (type as "products" | "users" | undefined) || primaryResultType,
+          primaryResultType,
           products: results.products,
           users: results.users,
           pagination: {
-            total,
+            total: totalForPagination,
             lastPage,
             currentPage,
             perPage,
@@ -299,7 +363,7 @@ export const searchEndpoint = createBaseElysia().get(
         },
       };
     } catch (error) {
-      log.error(error);
+      log.error("Search endpoint error:", error);
       set.status = 500;
       return {
         status: "error",

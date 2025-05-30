@@ -14,6 +14,7 @@ import { vendorRoutes } from "./controllers/vendors";
 import { wsRoutes } from "./controllers/ws";
 import { searchRoutes } from "./controllers/search";
 import { brandRoutes } from "./controllers/brands";
+import { connectRedis } from "./lib/redis"; // Add this import
 
 const app = baseElysia()
   .use(cors({}))
@@ -44,8 +45,22 @@ const app = baseElysia()
       .use(searchRoutes),
   );
 
-app.listen(config.PORT);
+// Initialize Redis connection before starting the server
+async function startServer() {
+  try {
+    console.log("🔄 Connecting to Redis...");
+    await connectRedis();
+    console.log("✅ Redis connected successfully");
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}/api/swagger`,
-);
+    app.listen(config.PORT);
+    console.log(
+      `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}/api/swagger`,
+    );
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();

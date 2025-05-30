@@ -7,6 +7,7 @@ import { forgotPasswordRoutes } from "./forgot-password";
 import { refreshWsToken } from "./refresh-ws-token";
 import { provider } from "./provider";
 import { providerCallback } from "./provider-callback";
+import { emailVerificationRoutes } from "./email-verification";
 
 const appSwagger = {
   detail: {
@@ -23,6 +24,7 @@ export const authRoutes = createBaseElysia({
   .use(signin)
   .use(provider)
   .use(providerCallback)
+  .use(emailVerificationRoutes)
   .use(checkAuth)
   .use(forgotPasswordRoutes)
   .use(refreshWsToken);

@@ -3,7 +3,7 @@ import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
 import { randomBytes } from "crypto";
 import { sendEmail } from "../../lib/email";
-import { createClient } from "redis";
+import { redisClient } from "../../lib/redis";
 
 // Define an interface for the verification data
 interface VerificationData {
@@ -11,17 +11,6 @@ interface VerificationData {
   verified: boolean;
   userId: string;
 }
-
-// Create Redis client
-const redisClient = createClient({
-  url: Bun.env.REDIS_URL as string,
-});
-
-// Connect to Redis
-(async () => {
-  redisClient.on("error", (err) => console.error("Redis Client Error:", err));
-  await redisClient.connect();
-})();
 
 export const forgotPasswordRoutes = createBaseElysia({ prefix: "/password" })
   // Step 1: Request password reset

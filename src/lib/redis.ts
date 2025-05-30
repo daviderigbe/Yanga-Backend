@@ -1,37 +1,22 @@
 import { createClient } from "redis";
 
+// Create Redis client
 export const redisClient = createClient({
-  url: process.env.REDIS_URL || "redis://localhost:6379",
+  url: Bun.env.REDIS_URL as string,
 });
 
-// Set up error handling
-redisClient.on("error", (err) => {
-  console.error("Redis error:", err);
-});
+export const connectRedis = async () => {
+  if (redisClient.isOpen) return;
 
-// Connect on startup
-export async function connectRedis() {
-  if (!redisClient.isOpen) {
+  try {
+    redisClient.on("error", (err) => console.error("Redis Client Error:", err));
+    redisClient.on("connect", () => console.log("Redis connected"));
+    redisClient.on("disconnect", () => console.log("Redis disconnected"));
+
     await redisClient.connect();
-    console.log("Redis connected");
+    console.log("Redis client connected successfully");
+  } catch (error) {
+    console.error("Failed to connect to Redis:", error);
+    throw error;
   }
-}
-
-// Graceful shutdown
-export async function disconnectRedis() {
-  if (redisClient.isOpen) {
-    await redisClient.disconnect();
-    console.log("Redis disconnected");
-  }
-}
-
-// Handle process termination signals
-process.on("SIGINT", async () => {
-  await disconnectRedis();
-  process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-  await disconnectRedis();
-  process.exit(0);
-});
+};

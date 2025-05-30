@@ -12,6 +12,7 @@ export const signin = createBaseElysia().post(
   async ({ body, set, log, cookie: { session } }) => {
     try {
       const { email, password } = body;
+
       const existingUser = await db.user.findUnique({
         where: {
           email,
@@ -22,6 +23,7 @@ export const signin = createBaseElysia().post(
           name: true,
           userName: true,
           password: true,
+          emailVerified: true, // Include email verification status
         },
       });
 
@@ -48,6 +50,17 @@ export const signin = createBaseElysia().post(
         } as ApiResponse<null>;
       }
 
+      // Check if email is verified
+      if (!existingUser.emailVerified) {
+        log.error("Email not verified for user:", existingUser.email);
+        set.status = 403; // Forbidden
+        return {
+          status: "error",
+          message: "Please verify your email address before logging in",
+          requiresEmailVerification: true,
+        } as ApiResponse<null> & { requiresEmailVerification: boolean };
+      }
+
       // Generate and store session token (for API requests)
       const token = generateSessionToken();
       const dbSession = await createSession(token, existingUser.id);
@@ -62,7 +75,7 @@ export const signin = createBaseElysia().post(
         data: {
           user: userWithoutPassword,
         },
-      } as ApiResponse<{ user: typeof userWithoutPassword; wsToken: string }>;
+      } as ApiResponse<{ user: typeof userWithoutPassword }>;
     } catch (error) {
       log.error("Signin error:", error);
       set.status = 500;
@@ -94,14 +107,17 @@ export const signin = createBaseElysia().post(
             email: t.String(),
             name: t.String(),
             userName: t.Optional(t.String()),
+            emailVerified: t.Boolean(),
           }),
         }),
       ),
+      requiresEmailVerification: t.Optional(t.Boolean()),
     }),
     detail: {
       tags: ["Auth"],
-      summary: "Login to user account",
-      description: "Login to user account with email and password",
+      summary: "Login to user account with email verification check",
+      description:
+        "Login to user account with email and password. Requires verified email address.",
     },
   },
 );

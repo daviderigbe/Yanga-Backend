@@ -1,13 +1,27 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
+import { ProductStatus, Condition } from "@prisma/client";
 
 export const fetchProductsByCategory = createBaseElysia().get(
   "/category/:id",
   async ({ set, log, params, query }) => {
     try {
       const { id } = params;
-      const { page = "1", limit = "10" } = query;
+      const {
+        page = "1",
+        limit = "10",
+        sortBy = "createdAt",
+        sortOrder = "desc",
+        minPrice,
+        maxPrice,
+        condition,
+        gender,
+        color,
+        size,
+        brandId,
+      } = query;
+
       const currentPage = parseInt(page);
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
@@ -25,13 +39,22 @@ export const fetchProductsByCategory = createBaseElysia().get(
         };
       }
 
+      const baseWhere = {
+        categoryId: id,
+        status: "ACTIVE" as ProductStatus,
+        isAvailable: true,
+        ...(condition && { condition }),
+        ...(gender && { gender }),
+        ...(color && { color: { contains: color, mode: "insensitive" } }),
+        ...(size && { size }),
+        ...(brandId && { brandId }),
+        ...(minPrice && { basePrice: { gte: parseFloat(minPrice) } }),
+        ...(maxPrice && { basePrice: { lte: parseFloat(maxPrice) } }),
+      };
+
       const [products, total] = await Promise.all([
         db.product.findMany({
-          where: {
-            categoryId: id,
-            status: "ACTIVE",
-            isAvailable: true,
-          },
+          where: baseWhere,
           include: {
             images: {
               orderBy: {
@@ -47,6 +70,13 @@ export const fetchProductsByCategory = createBaseElysia().get(
               select: {
                 id: true,
                 name: true,
+              },
+            },
+            brand: {
+              select: {
+                id: true,
+                name: true,
+                logoUrl: true,
               },
             },
             seller: {
@@ -69,17 +99,13 @@ export const fetchProductsByCategory = createBaseElysia().get(
             },
           },
           orderBy: {
-            createdAt: "desc",
+            [sortBy]: sortOrder,
           },
           skip,
           take: perPage,
         }),
         db.product.count({
-          where: {
-            categoryId: id,
-            status: "ACTIVE",
-            isAvailable: true,
-          },
+          where: baseWhere,
         }),
       ]);
 
@@ -116,8 +142,24 @@ export const fetchProductsByCategory = createBaseElysia().get(
   },
   {
     query: t.Object({
-      page: t.Optional(t.String()),
-      limit: t.Optional(t.String()),
+      page: t.Optional(t.String({ default: "1" })),
+      limit: t.Optional(t.String({ default: "10" })),
+      sortBy: t.Optional(t.String({ default: "createdAt" })),
+      sortOrder: t.Optional(t.Enum({ asc: "asc", desc: "desc" }, { default: "desc" })),
+      minPrice: t.Optional(t.String()),
+      maxPrice: t.Optional(t.String()),
+      condition: t.Optional(t.Enum({
+        NEW: "NEW",
+        OPEN_BOX: "OPEN_BOX",
+        LIKE_NEW: "LIKE_NEW",
+        LIGHTLY_USED: "LIGHTLY_USED",
+        FAIRLY_USED: "FAIRLY_USED",
+        HEAVILY_USED: "HEAVILY_USED",
+      })),
+      gender: t.Optional(t.Enum({ MEN: "MEN", WOMEN: "WOMEN", UNISEX: "UNISEX" })),
+      color: t.Optional(t.String()),
+      size: t.Optional(t.String()),
+      brandId: t.Optional(t.String()),
     }),
     params: t.Object({
       id: t.String(),
@@ -125,7 +167,7 @@ export const fetchProductsByCategory = createBaseElysia().get(
     detail: {
       tags: ["Products"],
       summary: "Fetch products by category",
-      description: "Fetch products filtered by category ID with pagination",
+      description: "Fetch products filtered by category ID with pagination and additional filters",
     },
   },
 );

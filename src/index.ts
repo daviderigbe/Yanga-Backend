@@ -14,7 +14,11 @@ import { vendorRoutes } from "./controllers/vendors";
 import { wsRoutes } from "./controllers/ws";
 import { searchRoutes } from "./controllers/search";
 import { brandRoutes } from "./controllers/brands";
+import { addressRoutes } from "./controllers/address";
 import { connectRedis } from "./lib/redis"; // Add this import
+import { paymentRoutes } from "./controllers/payment";
+import { salesRoutes } from "./controllers/sales";
+import { purchaseRoutes } from "./controllers/purchase";
 
 const app = baseElysia()
   .use(cors({}))
@@ -40,9 +44,13 @@ const app = baseElysia()
       .use(cartRoutes)
       .use(messagesRoutes)
       .use(vendorRoutes)
+      .use(addressRoutes)
       .use(brandRoutes)
       .use(wsRoutes)
-      .use(searchRoutes),
+      .use(searchRoutes)
+      .use(paymentRoutes)
+      .use(salesRoutes)
+      .use(purchaseRoutes),
   );
 
 // Initialize Redis connection before starting the server

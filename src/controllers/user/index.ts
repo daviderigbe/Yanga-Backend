@@ -1,7 +1,9 @@
 import { createBaseElysia } from "../../base";
+import { changeBankDetails } from "./change-bank-details";
 import { changePassword } from "./change-password";
 import { deactivateAccount } from "./deactivate-account";
 import { editProfile } from "./edit-profile";
+import { fetchBankDetails } from "./fetch-bank-details";
 import { fetchUserById } from "./fetch-user";
 import { fetchUserLikedProducts } from "./fetch-user-liked-products";
 import { fetchUserProducts } from "./fetch-user-products";
@@ -35,4 +37,6 @@ export const usersRoutes = createBaseElysia({
   .use(toggleBundleBuying)
   .use(toggleUnavailability)
   .use(deactivateAccount)
-  .use(reactivateAccount);
+  .use(reactivateAccount)
+  .use(fetchBankDetails)
+  .use(changeBankDetails);

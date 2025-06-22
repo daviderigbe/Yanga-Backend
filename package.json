@@ -10,6 +10,8 @@
     "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.832.0",
+    "@aws-sdk/s3-request-presigner": "^3.832.0",
     "@bogeychan/elysia-logger": "^0.1.7",
     "@elysiajs/cors": "^1.2.0",
     "@elysiajs/swagger": "^1.2.0",
@@ -27,6 +29,7 @@
     "resend": "^4.2.0"
   },
   "devDependencies": {
+    "@types/node": "^24.0.3",
     "bun-types": "latest",
     "prisma": "^6.2.1"
   },

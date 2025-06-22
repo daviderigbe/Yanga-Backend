@@ -117,8 +117,7 @@ model Product {
   brand   Brand?  @relation(fields: [brandId], references: [id])
 
   // Categories and Tags
-  category   Category         @relation(fields: [categoryId], references: [id])
-  categoryId String
+  categories CategoriesOnProducts[]
   tags       TagsOnProducts[]
 
   // Media and Engagement
@@ -138,7 +137,6 @@ model Product {
   productViews ProductView[]
 
   @@index([sellerId])
-  @@index([categoryId])
   @@index([brandId])
   @@index([status])
   @@index([gender])
@@ -214,11 +212,22 @@ model BrandCertification {
 
 /// Product categories
 model Category {
-  id       String    @id @default(uuid())
-  name     String    @unique
-  products Product[]
+  id       String                 @id @default(uuid())
+  name     String                 @unique
+  products CategoriesOnProducts[]
 
   @@index([name])
+}
+
+model CategoriesOnProducts {
+  productId  String
+  categoryId String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
 }
 
 /// Product tags for improved searching and filtering

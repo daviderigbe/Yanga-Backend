@@ -41,7 +41,7 @@ export const createProduct = createBaseElysia().post(
       const {
         title,
         description,
-        categoryId,
+        categories = [],
         size,
         gender,
         color,
@@ -55,18 +55,31 @@ export const createProduct = createBaseElysia().post(
       } = body;
 
       // 3. Validate category exists
-      const categoryExists = await db.category.findUnique({
-        where: { id: categoryId },
-      });
+      const categoryObjects = await Promise.all(
+        categories.map(async (name) => {
+          const normalized = name.trim().toLowerCase();
+          if (!normalized) return null;
 
-      if (!categoryExists) {
+          const category = await db.category.upsert({
+            where: { name: normalized },
+            update: {},
+            create: { name: normalized },
+          });
+
+          return { categoryId: category.id };
+        }),
+      );
+
+      // Filter out nulls (from empty or invalid strings)
+      const validCategoryData = categoryObjects.filter((c) => c !== null);
+
+      if (validCategoryData.length === 0) {
         set.status = 400;
         return {
           status: "error",
-          message: "Invalid category",
+          message: "At least one valid category is required",
         };
       }
-
       // 4. Validate images array
       if (images.length === 0) {
         set.status = 400;
@@ -124,7 +137,15 @@ export const createProduct = createBaseElysia().post(
           data: {
             title: title.trim(),
             description: description.trim(),
-            categoryId,
+            categories: {
+              create: validCategoryData.map(({ categoryId }) => ({
+                category: {
+                  connect: {
+                    id: categoryId,
+                  },
+                },
+              })),
+            },
             sellerId: user.id,
             size: size.trim(),
             gender,
@@ -259,7 +280,7 @@ export const createProduct = createBaseElysia().post(
     body: t.Object({
       title: t.String({ minLength: 3, maxLength: 100 }),
       description: t.String({ minLength: 10 }),
-      categoryId: t.String(),
+      categories: t.Array(t.String()),
       size: t.String(),
       gender: t.Enum(Gender),
       color: t.String(),

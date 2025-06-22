@@ -66,20 +66,21 @@ export const createProduct = createBaseElysia().post(
             create: { name: normalized },
           });
 
-          return { categoryId: category.id };
+          return category.id;
         }),
       );
 
       // Filter out nulls (from empty or invalid strings)
-      const validCategoryData = categoryObjects.filter((c) => c !== null);
+      const validCategoryIds = categoryObjects.filter((id) => id !== null);
 
-      if (validCategoryData.length === 0) {
+      if (validCategoryIds.length === 0) {
         set.status = 400;
         return {
           status: "error",
           message: "At least one valid category is required",
         };
       }
+
       // 4. Validate images array
       if (images.length === 0) {
         set.status = 400;
@@ -123,29 +124,31 @@ export const createProduct = createBaseElysia().post(
             create: { name: normalizedTag },
           });
 
-          return { tagId: tag.id };
+          return tag.id;
         }),
       );
 
       // Filter out any null values from empty tags
-      const validTagData = tagObjects.filter((tag) => tag !== null);
+      const validTagIds = tagObjects.filter((id) => id !== null);
 
-      // 8. Transaction to ensure data consistency
+      // 8. Handle brand lookup if provided
+      let brandId = null;
+      if (brand && brand.trim()) {
+        const brandRecord = await db.brand.findUnique({
+          where: { name: brand.trim() },
+        });
+        if (brandRecord) {
+          brandId = brandRecord.id;
+        }
+      }
+
+      // 9. Transaction to ensure data consistency
       const product = await db.$transaction(async (tx) => {
         // Create the product with its basic information
         const newProduct = await tx.product.create({
           data: {
             title: title.trim(),
             description: description.trim(),
-            categories: {
-              create: validCategoryData.map(({ categoryId }) => ({
-                category: {
-                  connect: {
-                    id: categoryId,
-                  },
-                },
-              })),
-            },
             sellerId: user.id,
             size: size.trim(),
             gender,
@@ -154,22 +157,12 @@ export const createProduct = createBaseElysia().post(
             basePrice,
             discountPercent,
             status,
-            brand: brand?.trim() || null,
+            brandId, // Use brandId instead of brand
             // Create the product images
             images: {
               create: images.map((url, index) => ({
                 url,
                 order: index,
-              })),
-            },
-            // Connect the tags
-            tags: {
-              create: validTagData.map(({ tagId }) => ({
-                tag: {
-                  connect: {
-                    id: tagId,
-                  },
-                },
               })),
             },
           },
@@ -179,10 +172,14 @@ export const createProduct = createBaseElysia().post(
                 order: "asc",
               },
             },
-            category: {
-              select: {
-                id: true,
-                name: true,
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
             seller: {
@@ -198,8 +195,34 @@ export const createProduct = createBaseElysia().post(
                 tag: true,
               },
             },
+            brand: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         });
+
+        // Create category relationships
+        if (validCategoryIds.length > 0) {
+          await tx.categoriesOnProducts.createMany({
+            data: validCategoryIds.map((categoryId) => ({
+              productId: newProduct.id,
+              categoryId,
+            })),
+          });
+        }
+
+        // Create tag relationships
+        if (validTagIds.length > 0) {
+          await tx.tagsOnProducts.createMany({
+            data: validTagIds.map((tagId) => ({
+              productId: newProduct.id,
+              tagId,
+            })),
+          });
+        }
 
         // Create a notification for followers if product is active
         if (status === "ACTIVE") {
@@ -225,20 +248,64 @@ export const createProduct = createBaseElysia().post(
           }
         }
 
-        return newProduct;
+        // Fetch the complete product with all relationships
+        const completeProduct = await tx.product.findUnique({
+          where: { id: newProduct.id },
+          include: {
+            images: {
+              orderBy: {
+                order: "asc",
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                userName: true,
+                imageUrl: true,
+              },
+            },
+            tags: {
+              include: {
+                tag: true,
+              },
+            },
+            brand: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        });
+
+        return completeProduct;
       });
 
-      // 9. Format response data
+      // 10. Format response data
       const formattedProduct = {
         ...product,
+        categories: product.categories.map(
+          (categoryRelation) => categoryRelation.category,
+        ),
         tags: product.tags.map((tagRelation) => tagRelation.tag),
         finalPrice: calculateFinalPrice(
-          product.basePrice,
+          Number(product.basePrice),
           product.discountPercent,
         ),
       };
 
-      // 10. Return appropriate response
+      // 11. Return appropriate response
       return {
         status: "success",
         message:
@@ -248,7 +315,7 @@ export const createProduct = createBaseElysia().post(
         data: formattedProduct,
       };
     } catch (error) {
-      // 11. Improved error handling
+      // 12. Improved error handling
       log.error("Product creation error:", error);
 
       // Handle specific database errors

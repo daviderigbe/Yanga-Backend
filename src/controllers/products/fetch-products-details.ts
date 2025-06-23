@@ -102,10 +102,14 @@ export const fetchProductById = createBaseElysia().get(
           id: id,
         },
         include: {
-          category: {
-            select: {
-              id: true,
-              name: true,
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
           tags: {

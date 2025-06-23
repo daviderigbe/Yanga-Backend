@@ -66,10 +66,14 @@ export const fetchProductsByCategory = createBaseElysia().get(
                 order: true,
               },
             },
-            category: {
-              select: {
-                id: true,
-                name: true,
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
             brand: {
@@ -145,18 +149,24 @@ export const fetchProductsByCategory = createBaseElysia().get(
       page: t.Optional(t.String({ default: "1" })),
       limit: t.Optional(t.String({ default: "10" })),
       sortBy: t.Optional(t.String({ default: "createdAt" })),
-      sortOrder: t.Optional(t.Enum({ asc: "asc", desc: "desc" }, { default: "desc" })),
+      sortOrder: t.Optional(
+        t.Enum({ asc: "asc", desc: "desc" }, { default: "desc" }),
+      ),
       minPrice: t.Optional(t.String()),
       maxPrice: t.Optional(t.String()),
-      condition: t.Optional(t.Enum({
-        NEW: "NEW",
-        OPEN_BOX: "OPEN_BOX",
-        LIKE_NEW: "LIKE_NEW",
-        LIGHTLY_USED: "LIGHTLY_USED",
-        FAIRLY_USED: "FAIRLY_USED",
-        HEAVILY_USED: "HEAVILY_USED",
-      })),
-      gender: t.Optional(t.Enum({ MEN: "MEN", WOMEN: "WOMEN", UNISEX: "UNISEX" })),
+      condition: t.Optional(
+        t.Enum({
+          NEW: "NEW",
+          OPEN_BOX: "OPEN_BOX",
+          LIKE_NEW: "LIKE_NEW",
+          LIGHTLY_USED: "LIGHTLY_USED",
+          FAIRLY_USED: "FAIRLY_USED",
+          HEAVILY_USED: "HEAVILY_USED",
+        }),
+      ),
+      gender: t.Optional(
+        t.Enum({ MEN: "MEN", WOMEN: "WOMEN", UNISEX: "UNISEX" }),
+      ),
       color: t.Optional(t.String()),
       size: t.Optional(t.String()),
       brandId: t.Optional(t.String()),
@@ -167,7 +177,8 @@ export const fetchProductsByCategory = createBaseElysia().get(
     detail: {
       tags: ["Products"],
       summary: "Fetch products by category",
-      description: "Fetch products filtered by category ID with pagination and additional filters",
+      description:
+        "Fetch products filtered by category ID with pagination and additional filters",
     },
   },
 );

@@ -45,10 +45,24 @@ export const fetchBestSellingProducts = createBaseElysia().get(
                 order: true,
               },
             },
-            category: {
+            // Updated categories include for many-to-many relationship
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            // Updated brand relationship
+            brand: {
               select: {
                 id: true,
                 name: true,
+                logoUrl: true,
+                status: true,
               },
             },
             seller: {
@@ -112,8 +126,16 @@ export const fetchBestSellingProducts = createBaseElysia().get(
         message: "Best selling products retrieved successfully",
         data: {
           items: products.map(
-            ({ _count, tags: productTags, likes, ...product }) => ({
+            ({
+              _count,
+              tags: productTags,
+              categories: productCategories,
+              likes,
+              ...product
+            }) => ({
               ...product,
+              // Map categories from the junction table
+              categories: productCategories.map(({ category }) => category),
               tags: productTags.map(({ tag }) => tag),
               likesCount: _count.likes,
               salesCount: _count.orderItems,

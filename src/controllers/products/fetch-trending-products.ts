@@ -104,8 +104,15 @@ export const fetchTrendingProducts = createBaseElysia().get(
             orderBy: { order: "asc" },
             select: { id: true, url: true, order: true },
           },
-          category: {
-            select: { id: true, name: true },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
           },
           seller: {
             select: { id: true, name: true, userName: true, imageUrl: true },

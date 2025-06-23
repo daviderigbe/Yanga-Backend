@@ -137,10 +137,14 @@ export const fetchProducts = createBaseElysia().get(
           take: perPage,
           orderBy: { [sortBy]: sortOrder },
           include: {
-            category: {
-              select: {
-                id: true,
-                name: true,
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
             brand: {

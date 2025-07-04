@@ -42,10 +42,14 @@ export const fetchUserProducts = createBaseElysia().get(
                 order: true,
               },
             },
-            category: {
-              select: {
-                id: true,
-                name: true,
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
             _count: {

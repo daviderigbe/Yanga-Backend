@@ -20,6 +20,8 @@ model User {
   bankCode        String?
   bankName        String?
   bankAccountName String?
+  bankAccountNumber String?
+  recipientCode   String? // Paystack recipient code for withdrawals
   isDeactivated   Boolean   @default(false)
   deactivatedAt   DateTime?
   createdAt       DateTime  @default(now())
@@ -69,6 +71,9 @@ model User {
 
   // Brand ownership
   ownedBrands Brand[] @relation("BrandOwner")
+
+  // Wallet
+  wallet Wallet?
 
   @@index([email])
   @@index([userName])
@@ -453,6 +458,14 @@ model DiscountCode {
   @@index([code])
   @@index([isActive])
   @@index([validUntil])
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Int      @default(0) // Store in kobo for accuracy
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 enum ProductStatus {

@@ -22,7 +22,7 @@ try {
     },
     {
       headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
         "Content-Type": "application/json",
       },
     }
@@ -46,7 +46,7 @@ try {
     `https://api.paystack.co/transaction/verify/${reference}`,
     {
       headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
       },
     }
   );

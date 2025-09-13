@@ -39,10 +39,12 @@ export const fetchNewArrivals = createBaseElysia().get(
       const filters = {
         status: ProductStatus.ACTIVE,
         isAvailable: true,
-        ...(categoryId ? { categoryId } : {}),
+        ...(categoryId
+          ? { categories: { some: { categoryId } } }
+          : {}),
         ...(gender ? { gender } : {}),
         ...(condition ? { condition } : {}),
-        ...(brand ? { brand } : {}),
+        ...(brand ? { brandId: brand } : {}), // Assuming brandId is the field in the Product model
         ...(color ? { color } : {}),
         ...(size ? { size } : {}),
         ...(minPrice || maxPrice
@@ -126,6 +128,7 @@ export const fetchNewArrivals = createBaseElysia().get(
       };
     } catch (error) {
       log.error(error);
+      console.error("Fetch error:", error);
       set.status = 500;
       return {
         status: "error",

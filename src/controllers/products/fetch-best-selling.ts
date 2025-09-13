@@ -135,7 +135,11 @@ export const fetchBestSellingProducts = createBaseElysia().get(
             }) => ({
               ...product,
               // Map categories from the junction table
-              categories: productCategories.map(({ category }) => category),
+              categories: productCategories.map(({ productId, categoryId, category }) => ({
+                productId,
+                categoryId,
+                category,
+              })),
               tags: productTags.map(({ tag }) => tag),
               likesCount: _count.likes,
               salesCount: _count.orderItems,

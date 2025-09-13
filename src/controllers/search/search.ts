@@ -44,7 +44,13 @@ const buildProductFilter = (params: {
       { title: { contains: searchQuery, mode: "insensitive" } },
       { description: { contains: searchQuery, mode: "insensitive" } },
       { brand: { name: { contains: searchQuery, mode: "insensitive" } } },
-      { category: { name: { contains: searchQuery, mode: "insensitive" } } },
+      {
+        categories: {
+          some: {
+            category: { name: { contains: searchQuery, mode: "insensitive" } },
+          },
+        },
+      },
       {
         tags: {
           some: {
@@ -57,7 +63,11 @@ const buildProductFilter = (params: {
 
   // Add filters
   if (category) {
-    filter.category = { name: { equals: category, mode: "insensitive" } };
+    filter.categories = {
+      some: {
+        category: { name: { equals: category, mode: "insensitive" } },
+      },
+    };
   }
 
   const minPriceValue = parseFloatSafely(minPrice);
@@ -105,12 +115,15 @@ type ProductSearchResult = {
   updatedAt: Date;
   isAvailable: boolean;
   sellerId: string;
-  categoryId: string;
   brandId: string | null;
   discountPercent: number | null;
   status: string;
   images: { id: string; url: string; order: number }[];
-  category: { id: string; name: string };
+  categories: {
+    productId: string;
+    categoryId: string;
+    category: { id: string; name: string };
+  }[];
   brand: { id: string; name: string } | null;
   seller: {
     id: string;
@@ -152,8 +165,10 @@ const searchProducts = async (params: {
           orderBy: { order: "asc" },
           select: { id: true, url: true, order: true },
         },
-        category: {
-          select: { id: true, name: true },
+        categories: {
+          include: {
+            category: { select: { id: true, name: true } },
+          },
         },
         brand: {
           select: { id: true, name: true },
@@ -185,9 +200,14 @@ const searchProducts = async (params: {
 
   return {
     items: products.map((product) => {
-      const { _count, tags, likes, ...rest } = product;
+      const { _count, tags, likes, categories, ...rest } = product;
       return {
         ...rest,
+        categories: categories.map(({ productId, categoryId, category }) => ({
+          productId,
+          categoryId,
+          category,
+        })),
         tags: tags.map(({ tag }) => tag),
         likesCount: _count.likes,
         ...(userId ? { isLiked: likes && likes.length > 0 } : {}),

@@ -1,6 +1,6 @@
 import { createBaseElysia } from "../../base";
 import { savedCards } from "./cards";
-import { paystackRoutes } from "./paystack";
+import {orderRoutes, paystackRoutes} from "./paystack";
 import { walletRoutes } from "./paystack";
 
 const appSwagger = {
@@ -15,4 +15,5 @@ export const paymentRoutes = createBaseElysia({
 })
   .use(savedCards)
   .use(paystackRoutes)
-  .use(walletRoutes); 
+  .use(walletRoutes)
+  .use(orderRoutes);

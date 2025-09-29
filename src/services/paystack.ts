@@ -64,104 +64,436 @@ try {
 
 // Credit merchant wallet after payment verification
 export async function creditMerchantWallet(orderId: string, reference: string) {
-  const verification = await verifyPayment(reference);
-  if (verification.status !== true || verification.data.status !== "success") {
-    throw new Error("Payment not successful");
-  }
+    const verification = await verifyPayment(reference);
+    if (verification.status !== true || verification.data.status !== "success") {
+        throw new Error("Payment not successful");
+    }
 
-  const order = await db.order.findUnique({
-    where: { id: orderId },
-    include: { items: { include: { product: true } } },
-  });
-  if (!order) throw new Error("Order not found");
-
-  for (const item of order.items) {
-    const merchantId = item.product.sellerId;
-    // Ensure price is in kobo (if price is Decimal, convert to number)
-    const amount = Number(item.price) * Number(item.quantity);
-
-    await db.wallet.upsert({
-      where: { userId: merchantId },
-      update: { balance: { increment: amount } },
-      create: { userId: merchantId, balance: amount },
+    // Check if this reference was already used
+    const existingOrder = await db.order.findUnique({
+        where: { paymentReference: reference }
     });
-  }
-}
 
-export async function withdrawFromWallet(userId: string, amount: number) {
-  // 1. Check wallet balance
-  const wallet = await db.wallet.findUnique({ where: { userId } });
-  if (!wallet || wallet.balance < amount) throw new Error("Insufficient balance");
+    if (existingOrder) {
+        throw new Error("Payment reference already processed");
+    }
 
-  // 2. Deduct from wallet
-  await db.wallet.update({
-    where: { userId },
-    data: { balance: { decrement: amount } },
-  });
+    const order = await db.order.findUnique({
+        where: { id: orderId },
+        include: { items: { include: { product: true } } },
+    });
+    if (!order) throw new Error("Order not found");
 
-  // 3. Initiate Paystack transfer (implement this)
-  await initiatePaystackTransfer(userId, amount);
+    await db.$transaction(async (tx) => {
+        // Update order with payment reference (unique constraint prevents duplicates)
+        await tx.order.update({
+            where: { id: orderId },
+            data: {
+                status: "PROCESSING",
+                paymentReference: reference
+            },
+        });
+
+        // Credit wallets
+        for (const item of order.items) {
+            const merchantId = item.product.sellerId;
+            const amountInKobo = nairaToKobo(Number(item.price) * Number(item.quantity));
+
+            await tx.wallet.upsert({
+                where: { userId: merchantId },
+                update: { balance: { increment: amountInKobo } },
+                create: { userId: merchantId, balance: amountInKobo },
+            });
+        }
+    });
 }
 
 /**
- * Initiate a Paystack transfer to a merchant's bank account.
- * You must have created a transfer recipient for the merchant beforehand.
+ * Fixed initiatePaystackTransfer function with proper error handling
  */
-export async function initiatePaystackTransfer(userId: string, amount: number) {
-  // Fetch merchant bank details from your User table
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user || !user.bankCode || !user.bankAccountName) {
-    throw new Error("Merchant bank details not found");
-  }
+// Fixed withdrawFromWallet function with proper transaction handling
+export async function withdrawFromWallet(userId: string, amountInNaira: number) {
+    // Convert naira to kobo for internal calculations
+    const amountInKobo = nairaToKobo(amountInNaira);
 
-  // You should store recipient_code in your DB after creating recipient with Paystack
-  // For demo, let's assume you have a recipientCode field on User
-  if (!user.recipientCode) {
-    // Create recipient if not exists
-    const recipientRes = await axios.post(
-      "https://api.paystack.co/transferrecipient",
-      {
-        type: "nuban",
-        name: user.bankAccountName,
-        account_number: user.bankAccountNumber,
-        bank_code: user.bankCode,
-        currency: "NGN",
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    const recipientCode = recipientRes.data.data.recipient_code;
-    // Save recipientCode to user (optional, for future transfers)
-    await db.user.update({
-      where: { id: userId },
-      data: { recipientCode },
-    });
-    user.recipientCode = recipientCode;
-  }
-
-  // Initiate transfer
-  const transferRes = await axios.post(
-    "https://api.paystack.co/transfer",
-    {
-      source: "balance",
-      amount,
-      recipient: user.recipientCode,
-      reason: "Merchant withdrawal",
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
-        "Content-Type": "application/json",
-      },
+    // 1. Check wallet balance FIRST
+    const wallet = await db.wallet.findUnique({ where: { userId } });
+    if (!wallet) throw new Error("Wallet not found");
+    if (wallet.balance < amountInKobo) {
+        throw new Error(`Insufficient balance. Available: ₦${koboToNaira(wallet.balance)}, Requested: ₦${amountInNaira}`);
     }
-  );
-  return transferRes.data;
+
+    // 2. Validate bank details and initiate transfer BEFORE deducting money
+    let transferResult;
+    try {
+        transferResult = await initiatePaystackTransfer(userId, amountInKobo);
+    } catch (error: any) {
+        // If transfer fails, don't deduct money - just throw the error
+        throw new Error(error.message || 'Transfer validation failed');
+    }
+
+    // 3. Only deduct from wallet AFTER successful transfer initiation
+    try {
+        await db.wallet.update({
+            where: { userId },
+            data: { balance: { decrement: amountInKobo } },
+        });
+    } catch (error: any) {
+        // If deduction fails after successful transfer, this is a critical error
+        console.error('CRITICAL: Transfer initiated but wallet deduction failed', {
+            userId,
+            amountInKobo,
+            transferResult,
+            error: error.message
+        });
+        // You might want to send an alert here or add to a failed transactions table
+        throw new Error('Transfer initiated but wallet update failed. Please contact support with this reference: ' + transferResult.data?.reference);
+    }
+
+    return transferResult;
 }
 
+/**
+ * Updated initiatePaystackTransfer with better error handling
+ */
+export async function initiatePaystackTransfer(userId: string, amountInKobo: number) {
+    try {
+        console.log(`Starting transfer validation for user: ${userId}, amount: ${amountInKobo} kobo`);
+
+        // Fetch user details
+        const user = await db.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        console.log(`User bank details:`, {
+            bankCode: user.bankCode ? 'Present' : 'Missing',
+            bankAccountName: user.bankAccountName ? 'Present' : 'Missing',
+            bankAccountNumber: user.bankAccountNumber ? 'Present' : 'Missing',
+            recipientCode: user.recipientCode ? 'Present' : 'Missing'
+        });
+
+        if (!user.bankCode || !user.bankAccountName || !user.bankAccountNumber) {
+            throw new Error("Incomplete bank details. Please update your bank information in your profile.");
+        }
+
+        let recipientCode = user.recipientCode;
+
+        // Validate and create recipient if needed
+        if (!recipientCode) {
+            try {
+                console.log('Validating bank account...');
+
+                // Validate the bank account first
+                const bankValidation = await validateBankAccount(user.bankAccountNumber, user.bankCode);
+                console.log('Bank validation successful:', bankValidation.status);
+
+                if (!bankValidation.status) {
+                    throw new Error(`Invalid bank account: ${bankValidation.message}`);
+                }
+
+                // Use validated account name
+                const validatedAccountName = bankValidation.data.account_name;
+                console.log(`Account validated for: ${validatedAccountName}`);
+
+                // Create recipient
+                const recipientData = {
+                    type: "nuban",
+                    name: validatedAccountName,
+                    account_number: user.bankAccountNumber,
+                    bank_code: user.bankCode,
+                    currency: "NGN",
+                };
+
+                const recipientRes = await axios.post(
+                    "https://api.paystack.co/transferrecipient",
+                    recipientData,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+
+                if (!recipientRes.data.status) {
+                    throw new Error(recipientRes.data.message || 'Failed to create transfer recipient');
+                }
+
+                recipientCode = recipientRes.data.data.recipient_code;
+                console.log(`Recipient created successfully`);
+
+                // Save recipient code
+                await db.user.update({
+                    where: { id: userId },
+                    data: { recipientCode },
+                });
+
+            } catch (error: any) {
+                console.error('Bank validation/recipient creation failed:', error.message);
+
+                // Provide more specific error messages
+                if (error.response?.data) {
+                    const paystackError = error.response.data;
+
+                    if (paystackError.message?.includes('Could not resolve account name')) {
+                        throw new Error('Invalid bank account number or bank code. Please verify your bank details.');
+                    }
+                    if (paystackError.message?.includes('Invalid bank code')) {
+                        throw new Error('Invalid bank code. Please select the correct bank.');
+                    }
+
+                    throw new Error(`Bank validation failed: ${paystackError.message}`);
+                }
+
+                throw new Error('Unable to validate bank details. Please check your account number and bank selection.');
+            }
+        }
+
+        // Initiate the actual transfer
+        try {
+            const transferData = {
+                source: "balance",
+                amount: amountInKobo,
+                recipient: recipientCode,
+                reason: "Merchant withdrawal",
+            };
+
+            const transferRes = await axios.post(
+                "https://api.paystack.co/transfer",
+                transferData,
+                {
+                    headers: {
+                        Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            console.log('Transfer initiated:', transferRes.data.status);
+
+            if (!transferRes.data.status) {
+                throw new Error(transferRes.data.message || 'Transfer initiation failed');
+            }
+
+            return transferRes.data;
+
+        } catch (error: any) {
+            console.error('Transfer initiation failed:', error.response?.data || error.message);
+
+            if (error.response?.data) {
+                const paystackError = error.response.data;
+
+                // Handle invalid recipient by clearing stored code
+                if (paystackError.message?.includes('Recipient specified is invalid')) {
+                    console.log('Clearing invalid recipient code...');
+                    await db.user.update({
+                        where: { id: userId },
+                        data: { recipientCode: null },
+                    });
+                    throw new Error('Bank details may have changed. Please try again.');
+                }
+
+                if (paystackError.message?.includes('Insufficient funds')) {
+                    throw new Error('Merchant account has insufficient funds. Please contact support.');
+                }
+
+                throw new Error(`Transfer failed: ${paystackError.message}`);
+            }
+
+            throw new Error('Transfer service temporarily unavailable. Please try again later.');
+        }
+
+    } catch (error: any) {
+        console.error('Transfer process failed:', error.message);
+        throw error; // Re-throw to maintain error context
+    }
+}
+
+
+export async function validateBankAccount(accountNumber: string, bankCode: string) {
+    try {
+        const response = await axios.get(
+            `https://api.paystack.co/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
+                },
+            }
+        );
+        return response.data;
+    } catch (error: any) {
+        if (error.response?.data) {
+            throw new Error(error.response.data.message || 'Bank account validation failed');
+        }
+        throw new Error('Unable to validate bank account');
+    }
+}
+
+// New function for dynamic bank details withdrawal
+export async function withdrawToBank(
+    userId: string,
+    amountInNaira: number,
+    bankDetails: {
+        accountNumber: string;
+        bankCode: string;
+        accountName?: string;
+    }
+) {
+    const amountInKobo = nairaToKobo(amountInNaira);
+
+    // 1. Check wallet balance
+    const wallet = await db.wallet.findUnique({ where: { userId } });
+    if (!wallet) throw new Error("Wallet not found");
+    if (wallet.balance < amountInKobo) {
+        throw new Error(`Insufficient balance. Available: ₦${koboToNaira(wallet.balance)}, Requested: ₦${amountInNaira}`);
+    }
+
+    // 2. Validate bank account and create transfer recipient
+    let transferResult;
+    try {
+        transferResult = await initiateTransferToBank(userId, amountInKobo, bankDetails);
+    } catch (error: any) {
+        throw new Error(error.message || 'Transfer validation failed');
+    }
+
+    // 3. Deduct from wallet only after successful transfer initiation
+    try {
+        await db.wallet.update({
+            where: { userId },
+            data: { balance: { decrement: amountInKobo } },
+        });
+    } catch (error: any) {
+        console.error('CRITICAL: Transfer initiated but wallet deduction failed', {
+            userId,
+            amountInKobo,
+            transferResult,
+            error: error.message
+        });
+        throw new Error('Transfer initiated but wallet update failed. Reference: ' + transferResult.data?.reference);
+    }
+
+    return transferResult;
+}
+
+// Function to handle dynamic bank account transfers
+export async function initiateTransferToBank(
+    userId: string,
+    amountInKobo: number,
+    bankDetails: {
+        accountNumber: string;
+        bankCode: string;
+        accountName?: string;
+    }
+) {
+    try {
+        console.log(`Validating bank account: ${bankDetails.accountNumber} - ${bankDetails.bankCode}`);
+
+        // 1. Validate the bank account
+        const bankValidation = await validateBankAccount(bankDetails.accountNumber, bankDetails.bankCode);
+
+        if (!bankValidation.status) {
+            throw new Error(`Invalid bank account: ${bankValidation.message}`);
+        }
+
+        // 2. Use the validated account name from Paystack
+        const validatedAccountName = bankValidation.data.account_name;
+        console.log(`Account validated for: ${validatedAccountName}`);
+
+        // 3. Create a temporary recipient (don't save to user profile)
+        const recipientData = {
+            type: "nuban",
+            name: validatedAccountName,
+            account_number: bankDetails.accountNumber,
+            bank_code: bankDetails.bankCode,
+            currency: "NGN",
+        };
+
+        const recipientRes = await axios.post(
+            "https://api.paystack.co/transferrecipient",
+            recipientData,
+            {
+                headers: {
+                    Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        if (!recipientRes.data.status) {
+            throw new Error(recipientRes.data.message || 'Failed to create transfer recipient');
+        }
+
+        const recipientCode = recipientRes.data.data.recipient_code;
+        console.log(`Temporary recipient created`);
+
+        // 4. Initiate transfer
+        const transferData = {
+            source: "balance",
+            amount: amountInKobo,
+            recipient: recipientCode,
+            reason: `Withdrawal by user ${userId}`,
+        };
+
+        const transferRes = await axios.post(
+            "https://api.paystack.co/transfer",
+            transferData,
+            {
+                headers: {
+                    Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        if (!transferRes.data.status) {
+            throw new Error(transferRes.data.message || 'Transfer initiation failed');
+        }
+
+        // 5. Optionally save this bank account for future use if user wants
+        // (You could add a flag in the request to save it)
+
+        return transferRes.data;
+
+    } catch (error: any) {
+        console.error('Dynamic transfer failed:', error.message);
+
+        if (error.response?.data) {
+            const paystackError = error.response.data;
+
+            if (paystackError.message?.includes('Could not resolve account name')) {
+                throw new Error('Invalid bank account number. Please check and try again.');
+            }
+            if (paystackError.message?.includes('Invalid bank code')) {
+                throw new Error('Invalid bank selected. Please choose the correct bank.');
+            }
+            if (paystackError.message?.includes('Insufficient funds')) {
+                throw new Error('Service temporarily unavailable. Please try again later.');
+            }
+
+            throw new Error(`Bank validation failed: ${paystackError.message}`);
+        }
+
+        throw error;
+    }
+}
+
+// Helper function to get list of supported banks
+export async function getSupportedBanks() {
+    try {
+        const response = await axios.get(
+            "https://api.paystack.co/bank",
+            {
+                headers: {
+                    Authorization: `Bearer ${config.PAYSTACK_SECRET_KEY}`,
+                },
+            }
+        );
+        return response.data;
+    } catch (error: any) {
+        throw new Error('Unable to fetch supported banks');
+    }
+}
 // Verify Paystack signature for webhook
 export function verifyPaystackSignature(
   payload: string,

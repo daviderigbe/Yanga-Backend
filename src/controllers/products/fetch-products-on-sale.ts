@@ -63,7 +63,7 @@ export const fetchProductsOnSale = createBaseElysia().get(
         ...(categoryId
           ? {
               categories: {
-                some: { categoryId }, // ✅ filter through join table
+                some: { categoryId }, // filter through join table
               },
             }
           : {}),

@@ -35,15 +35,21 @@ export const fetchTrendingProducts = createBaseElysia().get(
         }
       }
 
-      // Define the trending window period (last 7 days)
+      // Trending period (last 7 days)
       const trendingPeriodStart = new Date();
       trendingPeriodStart.setDate(trendingPeriodStart.getDate() - 7);
 
-      // Build general filters for the count query
+      // Filters for the count query
       const filters = {
         status: ProductStatus.ACTIVE,
         isAvailable: true,
-        ...(categoryId ? { categoryId } : {}),
+        ...(categoryId
+          ? {
+              categories: {
+                some: { categoryId },
+              },
+            }
+          : {}),
         ...(gender ? { gender } : {}),
         ...(condition ? { condition } : {}),
         ...(brand ? { brand } : {}),
@@ -59,7 +65,7 @@ export const fetchTrendingProducts = createBaseElysia().get(
           : {}),
       };
 
-      // Use Prisma's SQL template literal syntax for better type safety
+      // Raw SQL query (with categories join)
       const sqlQuery = Prisma.sql`
         SELECT p.*, 
           COUNT(DISTINCT l.id) as like_count,
@@ -72,8 +78,9 @@ export const fetchTrendingProducts = createBaseElysia().get(
           AND c."createdAt" >= ${trendingPeriodStart}
         LEFT JOIN "ProductView" v ON p."id" = v."productId" 
           AND v."viewedAt" >= ${trendingPeriodStart}
+        LEFT JOIN "CategoriesOnProducts" cop ON p."id" = cop."productId"
         WHERE p."status" = 'ACTIVE' AND p."isAvailable" = true
-        ${categoryId ? Prisma.sql`AND p."categoryId" = ${categoryId}` : Prisma.sql``}
+        ${categoryId ? Prisma.sql`AND cop."categoryId" = ${categoryId}` : Prisma.sql``}
         ${gender ? Prisma.sql`AND p."gender" = ${gender}` : Prisma.sql``}
         ${condition ? Prisma.sql`AND p."condition" = ${condition}` : Prisma.sql``}
         ${brand ? Prisma.sql`AND p."brand" = ${brand}` : Prisma.sql``}
@@ -87,18 +94,15 @@ export const fetchTrendingProducts = createBaseElysia().get(
         OFFSET ${skip}
       `;
 
-      // Execute queries in parallel for efficiency
       const [products, total] = await Promise.all([
         db.$queryRaw(sqlQuery),
         db.product.count({ where: filters }),
       ]);
 
-      // Fetch additional product details
+      // Fetch full product details
       const productIds = (products as any[]).map((p) => p.id);
       const productDetails = await db.product.findMany({
-        where: {
-          id: { in: productIds },
-        },
+        where: { id: { in: productIds } },
         include: {
           images: {
             orderBy: { order: "asc" },
@@ -107,10 +111,7 @@ export const fetchTrendingProducts = createBaseElysia().get(
           categories: {
             include: {
               category: {
-                select: {
-                  id: true,
-                  name: true,
-                },
+                select: { id: true, name: true },
               },
             },
           },
@@ -122,9 +123,7 @@ export const fetchTrendingProducts = createBaseElysia().get(
               tag: true,
             },
           },
-          _count: {
-            select: { likes: true },
-          },
+          _count: { select: { likes: true } },
           ...(loggedInUserId
             ? {
                 likes: {
@@ -161,6 +160,7 @@ export const fetchTrendingProducts = createBaseElysia().get(
           items: trendingProducts.map(
             ({ _count, tags: productTags, likes, ...product }) => ({
               ...product,
+              categories: product.categories,
               tags: productTags.map(({ tag }) => tag),
               likesCount: _count.likes,
               ...(loggedInUserId ? { isLiked: likes && likes.length > 0 } : {}),

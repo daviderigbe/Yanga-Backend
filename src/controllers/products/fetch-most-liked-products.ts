@@ -19,7 +19,6 @@ export const fetchMostLiked = createBaseElysia().get(
         brand,
         color,
         size,
-        // Time period for likes (optional)
         period = "all", // "day", "week", "month", "all"
       } = query;
 
@@ -37,7 +36,7 @@ export const fetchMostLiked = createBaseElysia().get(
         }
       }
 
-      // Build time period filter for likes if needed
+      // Time period filter for likes
       let likeTimeFilter = {};
       if (period !== "all") {
         const now = new Date();
@@ -53,25 +52,26 @@ export const fetchMostLiked = createBaseElysia().get(
           case "month":
             startDate.setMonth(now.getMonth() - 1);
             break;
-          default:
-            // Default to "all" - no date filtering
-            break;
         }
 
-        if (period !== "all") {
-          likeTimeFilter = {
-            createdAt: {
-              gte: startDate,
-            },
-          };
-        }
+        likeTimeFilter = {
+          createdAt: {
+            gte: startDate,
+          },
+        };
       }
 
-      // Build general filters
+      // Filters
       const filters = {
         status: ProductStatus.ACTIVE,
         isAvailable: true,
-        ...(categoryId ? { categoryId } : {}),
+        ...(categoryId
+          ? {
+              categories: {
+                some: { categoryId },
+              },
+            }
+          : {}),
         ...(gender ? { gender } : {}),
         ...(condition ? { condition } : {}),
         ...(brand ? { brand } : {}),
@@ -98,10 +98,7 @@ export const fetchMostLiked = createBaseElysia().get(
             categories: {
               include: {
                 category: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
+                  select: { id: true, name: true },
                 },
               },
             },
@@ -150,8 +147,9 @@ export const fetchMostLiked = createBaseElysia().get(
         message: "Most liked products retrieved successfully",
         data: {
           items: products.map(
-            ({ _count, tags: productTags, likes, ...product }) => ({
+            ({ _count, tags: productTags, likes, categories, ...product }) => ({
               ...product,
+              categories, // Keep junction-style format
               tags: productTags.map(({ tag }) => tag),
               likesCount: _count.likes,
               ...(loggedInUserId ? { isLiked: likes && likes.length > 0 } : {}),

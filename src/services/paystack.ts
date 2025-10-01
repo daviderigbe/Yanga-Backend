@@ -62,52 +62,6 @@ try {
   }
 }
 
-// Credit merchant wallet after payment verification
-export async function creditMerchantWallet(orderId: string, reference: string) {
-    const verification = await verifyPayment(reference);
-    if (verification.status !== true || verification.data.status !== "success") {
-        throw new Error("Payment not successful");
-    }
-
-    // Check if this reference was already used
-    const existingOrder = await db.order.findUnique({
-        where: { paymentReference: reference }
-    });
-
-    if (existingOrder) {
-        throw new Error("Payment reference already processed");
-    }
-
-    const order = await db.order.findUnique({
-        where: { id: orderId },
-        include: { items: { include: { product: true } } },
-    });
-    if (!order) throw new Error("Order not found");
-
-    await db.$transaction(async (tx) => {
-        // Update order with payment reference (unique constraint prevents duplicates)
-        await tx.order.update({
-            where: { id: orderId },
-            data: {
-                status: "PROCESSING",
-                paymentReference: reference
-            },
-        });
-
-        // Credit wallets
-        for (const item of order.items) {
-            const merchantId = item.product.sellerId;
-            const amountInKobo = nairaToKobo(Number(item.price) * Number(item.quantity));
-
-            await tx.wallet.upsert({
-                where: { userId: merchantId },
-                update: { balance: { increment: amountInKobo } },
-                create: { userId: merchantId, balance: amountInKobo },
-            });
-        }
-    });
-}
-
 /**
  * Fixed initiatePaystackTransfer function with proper error handling
  */

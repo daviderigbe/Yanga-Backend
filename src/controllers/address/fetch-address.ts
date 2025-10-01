@@ -3,6 +3,20 @@ import { createBaseElysia } from "../../base";
 import { validateSessionToken } from "../../lib/auth";
 import { db } from "../../lib/db";
 
+// Nigerian states
+const NIGERIAN_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
+  "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu",
+  "FCT - Abuja", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina",
+  "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun",
+  "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba",
+  "Yobe", "Zamfara"
+];
+
+
+// Allowed countries (for now only Nigeria)
+const ALLOWED_COUNTRIES = ["Nigeria"];
+
 export const addresses = createBaseElysia()
   .post(
     "",
@@ -10,34 +24,21 @@ export const addresses = createBaseElysia()
       try {
         if (!session.value) {
           set.status = "Bad Request";
-          return {
-            status: "error",
-            message: "Session not found",
-          };
+          return { status: "error", message: "Session not found" };
         }
 
-        const { session: dbSession, user } = await validateSessionToken(
-          session.value,
-        );
+        const { session: dbSession, user } = await validateSessionToken(session.value);
 
         if (!dbSession || !user) {
           set.status = "Unauthorized";
-          return {
-            status: "error",
-            message: "Invalid session",
-          };
+          return { status: "error", message: "Invalid session" };
         }
 
         // If this is being set as default, update existing defaults
         if (body.isDefault) {
           await db.address.updateMany({
-            where: {
-              userId: user.id,
-              type: body.type,
-            },
-            data: {
-              isDefault: false,
-            },
+            where: { userId: user.id, type: body.type },
+            data: { isDefault: false },
           });
         }
 
@@ -49,7 +50,7 @@ export const addresses = createBaseElysia()
             street: body.address,
             city: body.city,
             state: body.state,
-            country: body.country || "Nigeria", // Default to Nigeria
+            country: body.country || "Nigeria", // Only "Nigeria"
             zipCode: body.zipCode || "",
             isDefault: body.isDefault || false,
           },
@@ -64,10 +65,7 @@ export const addresses = createBaseElysia()
       } catch (error) {
         log.error("Add address error:", error);
         set.status = 500;
-        return {
-          status: "error",
-          message: "An error occurred while adding the address",
-        };
+        return { status: "error", message: "An error occurred while adding the address" };
       }
     },
     {
@@ -85,21 +83,16 @@ export const addresses = createBaseElysia()
           maxLength: 50,
           error: "City must be between 2 and 50 characters",
         }),
-        state: t.String({
-          minLength: 2,
-          maxLength: 50,
-          error: "State must be between 2 and 50 characters",
+        state: t.Union(NIGERIAN_STATES.map((s) => t.Literal(s)), {
+          error: "Invalid state. Must be a valid Nigerian state",
         }),
         country: t.Optional(
-          t.String({
-            minLength: 2,
-            maxLength: 50,
+          t.Union(ALLOWED_COUNTRIES.map((c) => t.Literal(c)), {
+            error: "Invalid country. Only Nigeria is supported",
           }),
         ),
         zipCode: t.Optional(
-          t.String({
-            maxLength: 10,
-          }),
+          t.String({ maxLength: 10 })
         ),
         isDefault: t.Optional(t.Boolean()),
       }),
@@ -116,29 +109,18 @@ export const addresses = createBaseElysia()
       try {
         if (!session.value) {
           set.status = "Bad Request";
-          return {
-            status: "error",
-            message: "Session not found",
-          };
+          return { status: "error", message: "Session not found" };
         }
 
-        const { session: dbSession, user } = await validateSessionToken(
-          session.value,
-        );
+        const { session: dbSession, user } = await validateSessionToken(session.value);
 
         if (!dbSession || !user) {
           set.status = "Unauthorized";
-          return {
-            status: "error",
-            message: "Invalid session",
-          };
+          return { status: "error", message: "Invalid session" };
         }
 
         const addresses = await db.address.findMany({
-          where: {
-            userId: user.id,
-            ...(query.type && { type: query.type }),
-          },
+          where: { userId: user.id, ...(query.type && { type: query.type }) },
           orderBy: [{ isDefault: "desc" }],
         });
 
@@ -151,10 +133,7 @@ export const addresses = createBaseElysia()
       } catch (error) {
         log.error("Get addresses error:", error);
         set.status = 500;
-        return {
-          status: "error",
-          message: "An error occurred while retrieving addresses",
-        };
+        return { status: "error", message: "An error occurred while retrieving addresses" };
       }
     },
     {
@@ -178,50 +157,31 @@ export const addresses = createBaseElysia()
       try {
         if (!session.value) {
           set.status = "Bad Request";
-          return {
-            status: "error",
-            message: "Session not found",
-          };
+          return { status: "error", message: "Session not found" };
         }
 
-        const { session: dbSession, user } = await validateSessionToken(
-          session.value,
-        );
+        const { session: dbSession, user } = await validateSessionToken(session.value);
 
         if (!dbSession || !user) {
           set.status = "Unauthorized";
-          return {
-            status: "error",
-            message: "Invalid session",
-          };
+          return { status: "error", message: "Invalid session" };
         }
 
         // Verify address belongs to user
         const existingAddress = await db.address.findFirst({
-          where: {
-            id: params.id,
-            userId: user.id,
-          },
+          where: { id: params.id, userId: user.id },
         });
 
         if (!existingAddress) {
           set.status = "Not Found";
-          return {
-            status: "error",
-            message: "Address not found",
-          };
+          return { status: "error", message: "Address not found" };
         }
 
         // If this is being set as default, update existing defaults
         if (body.isDefault) {
           await db.address.updateMany({
-            where: {
-              userId: user.id,
-              type: existingAddress.type,
-            },
-            data: {
-              isDefault: false,
-            },
+            where: { userId: user.id, type: existingAddress.type },
+            data: { isDefault: false },
           });
         }
 
@@ -247,46 +207,25 @@ export const addresses = createBaseElysia()
       } catch (error) {
         log.error("Update address error:", error);
         set.status = 500;
-        return {
-          status: "error",
-          message: "An error occurred while updating the address",
-        };
+        return { status: "error", message: "An error occurred while updating the address" };
       }
     },
     {
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: t.Object({ id: t.String() }),
       body: t.Object({
-        address: t.Optional(
-          t.String({
-            minLength: 5,
-            maxLength: 200,
-          }),
-        ),
-        city: t.Optional(
-          t.String({
-            minLength: 2,
-            maxLength: 50,
-          }),
-        ),
+        address: t.Optional(t.String({ minLength: 5, maxLength: 200 })),
+        city: t.Optional(t.String({ minLength: 2, maxLength: 50 })),
         state: t.Optional(
-          t.String({
-            minLength: 2,
-            maxLength: 50,
+          t.Union(NIGERIAN_STATES.map((s) => t.Literal(s)), {
+            error: "Invalid state. Must be a valid Nigerian state",
           }),
         ),
         country: t.Optional(
-          t.String({
-            minLength: 2,
-            maxLength: 50,
+          t.Union(ALLOWED_COUNTRIES.map((c) => t.Literal(c)), {
+            error: "Invalid country. Only Nigeria is supported",
           }),
         ),
-        zipCode: t.Optional(
-          t.String({
-            maxLength: 10,
-          }),
-        ),
+        zipCode: t.Optional(t.String({ maxLength: 10 })),
         isDefault: t.Optional(t.Boolean()),
       }),
       detail: {
@@ -302,67 +241,58 @@ export const addresses = createBaseElysia()
       try {
         if (!session.value) {
           set.status = "Bad Request";
-          return {
-            status: "error",
-            message: "Session not found",
-          };
+          return { status: "error", message: "Session not found" };
         }
 
-        const { session: dbSession, user } = await validateSessionToken(
-          session.value,
-        );
+        const { session: dbSession, user } = await validateSessionToken(session.value);
 
         if (!dbSession || !user) {
           set.status = "Unauthorized";
-          return {
-            status: "error",
-            message: "Invalid session",
-          };
+          return { status: "error", message: "Invalid session" };
         }
 
         // Verify address belongs to user
         const existingAddress = await db.address.findFirst({
-          where: {
-            id: params.id,
-            userId: user.id,
-          },
+          where: { id: params.id, userId: user.id },
         });
 
         if (!existingAddress) {
           set.status = "Not Found";
-          return {
-            status: "error",
-            message: "Address not found",
-          };
+          return { status: "error", message: "Address not found" };
         }
 
-        // Delete address
-        await db.address.delete({
-          where: { id: params.id },
-        });
+        await db.address.delete({ where: { id: params.id } });
 
         set.status = "OK";
-        return {
-          status: "success",
-          message: "Address deleted successfully",
-        };
+        return { status: "success", message: "Address deleted successfully" };
       } catch (error) {
         log.error("Delete address error:", error);
         set.status = 500;
-        return {
-          status: "error",
-          message: "An error occurred while deleting the address",
-        };
+        return { status: "error", message: "An error occurred while deleting the address" };
       }
     },
     {
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: t.Object({ id: t.String() }),
       detail: {
         tags: ["Address"],
         summary: "Delete address",
         description: "Delete an existing address",
       },
     },
-  );
+  )
+    .get(
+      "/states",
+      () => {
+        return {
+          status: "success",
+          data: NIGERIAN_STATES,
+        };
+      },
+      {
+        detail: {
+          tags: ["Address"],
+          summary: "Get Nigerian states",
+          description: "Retrieve the list of all states in Nigeria for dropdowns",
+        },
+      },
+    );

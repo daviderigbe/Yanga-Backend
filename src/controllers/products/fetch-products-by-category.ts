@@ -1,7 +1,7 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
-import { ProductStatus, Condition } from "@prisma/client";
+import { ProductStatus } from "@prisma/client";
 
 export const fetchProductsByCategory = createBaseElysia().get(
   "/category/:id",
@@ -40,9 +40,13 @@ export const fetchProductsByCategory = createBaseElysia().get(
       }
 
       const baseWhere = {
-        categoryId: id,
         status: "ACTIVE" as ProductStatus,
         isAvailable: true,
+        categories: {
+          some: {
+            categoryId: id,
+          },
+        },
         ...(condition && { condition }),
         ...(gender && { gender }),
         ...(color && { color: { contains: color, mode: "insensitive" } }),
@@ -57,31 +61,16 @@ export const fetchProductsByCategory = createBaseElysia().get(
           where: baseWhere,
           include: {
             images: {
-              orderBy: {
-                order: "asc",
-              },
-              select: {
-                id: true,
-                url: true,
-                order: true,
-              },
+              orderBy: { order: "asc" },
+              select: { id: true, url: true, order: true },
             },
             categories: {
               include: {
-                category: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
+                category: { select: { id: true, name: true } },
               },
             },
             brand: {
-              select: {
-                id: true,
-                name: true,
-                logoUrl: true,
-              },
+              select: { id: true, name: true, logoUrl: true },
             },
             seller: {
               select: {
@@ -92,14 +81,10 @@ export const fetchProductsByCategory = createBaseElysia().get(
               },
             },
             tags: {
-              include: {
-                tag: true,
-              },
+              include: { tag: true },
             },
             _count: {
-              select: {
-                likes: true,
-              },
+              select: { likes: true },
             },
           },
           orderBy: {

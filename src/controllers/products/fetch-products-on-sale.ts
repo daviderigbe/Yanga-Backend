@@ -39,7 +39,7 @@ export const fetchProductsOnSale = createBaseElysia().get(
       }
 
       // Build filter conditions for sale items
-      const filters = {
+      const filters: any = {
         status: ProductStatus.ACTIVE,
         isAvailable: true,
         discountPercent: {
@@ -47,7 +47,6 @@ export const fetchProductsOnSale = createBaseElysia().get(
           ...(minDiscount ? { gte: parseFloat(minDiscount) } : {}),
           ...(maxDiscount ? { lte: parseFloat(maxDiscount) } : {}),
         },
-        ...(categoryId ? { categoryId } : {}),
         ...(gender ? { gender } : {}),
         ...(condition ? { condition } : {}),
         ...(brand ? { brand } : {}),
@@ -58,6 +57,13 @@ export const fetchProductsOnSale = createBaseElysia().get(
               basePrice: {
                 ...(minPrice ? { gte: parseFloat(minPrice) } : {}),
                 ...(maxPrice ? { lte: parseFloat(maxPrice) } : {}),
+              },
+            }
+          : {}),
+        ...(categoryId
+          ? {
+              categories: {
+                some: { categoryId }, // ✅ filter through join table
               },
             }
           : {}),
@@ -78,10 +84,7 @@ export const fetchProductsOnSale = createBaseElysia().get(
             categories: {
               include: {
                 category: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
+                  select: { id: true, name: true },
                 },
               },
             },
@@ -89,13 +92,9 @@ export const fetchProductsOnSale = createBaseElysia().get(
               select: { id: true, name: true, userName: true, imageUrl: true },
             },
             tags: {
-              include: {
-                tag: true,
-              },
+              include: { tag: true },
             },
-            _count: {
-              select: { likes: true },
-            },
+            _count: { select: { likes: true } },
             ...(loggedInUserId
               ? {
                   likes: {
@@ -107,9 +106,7 @@ export const fetchProductsOnSale = createBaseElysia().get(
           },
           skip,
           take: perPage,
-          // orderBy:{
-          //
-          // }
+          orderBy,
         }),
         db.product.count({ where: filters }),
       ]);
@@ -125,6 +122,7 @@ export const fetchProductsOnSale = createBaseElysia().get(
           ...(loggedInUserId ? { isLiked: likes && likes.length > 0 } : {}),
         }),
       );
+
       const productsWithSalePrices = enhancedProducts.map((product) => {
         const discountAmount =
           parseFloat(product.basePrice.toString()) *

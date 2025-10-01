@@ -2,7 +2,6 @@ import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
 import { validateSessionToken } from "../../lib/auth";
-import { ProductStatus } from "@prisma/client";
 
 export const fetchRecommendedProducts = createBaseElysia().get(
   "/recommended",
@@ -15,6 +14,7 @@ export const fetchRecommendedProducts = createBaseElysia().get(
           message: "Authentication required for personalized recommendations",
         };
       }
+
       const { user } = await validateSessionToken(session.value);
       if (!user) {
         set.status = 401;
@@ -31,13 +31,17 @@ export const fetchRecommendedProducts = createBaseElysia().get(
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
 
-      // Get user's liked products to find categories and tags they prefer
+      // Get user's liked products (with categories + tags)
       const userLikes = await db.like.findMany({
         where: { userId: loggedInUserId },
         include: {
           product: {
             include: {
-              category: true,
+              categories: {
+                include: {
+                  category: true,
+                },
+              },
               tags: {
                 include: { tag: true },
               },
@@ -50,13 +54,16 @@ export const fetchRecommendedProducts = createBaseElysia().get(
         },
       });
 
-      // Extract categories and tags from liked products
+      // Extract liked categories
       const likedCategoryIds = Array.from(
         new Set(
-          userLikes.map((like) => like.product.categoryId).filter(Boolean),
+          userLikes
+            .flatMap((like) => like.product.categories.map((c) => c.categoryId))
+            .filter(Boolean),
         ),
       );
 
+      // Extract liked tags
       const likedTagIds = Array.from(
         new Set(
           userLikes
@@ -65,14 +72,20 @@ export const fetchRecommendedProducts = createBaseElysia().get(
         ),
       );
 
-      // Find products from similar categories or with similar tags
+      // Find products with similar categories or tags
       const [products, total] = await Promise.all([
         db.product.findMany({
           where: {
             status: "ACTIVE",
             isAvailable: true,
             OR: [
-              { categoryId: { in: likedCategoryIds } },
+              {
+                categories: {
+                  some: {
+                    categoryId: { in: likedCategoryIds },
+                  },
+                },
+              },
               likedTagIds.length > 0
                 ? {
                     tags: {
@@ -97,10 +110,7 @@ export const fetchRecommendedProducts = createBaseElysia().get(
             categories: {
               include: {
                 category: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
+                  select: { id: true, name: true },
                 },
               },
             },
@@ -127,7 +137,13 @@ export const fetchRecommendedProducts = createBaseElysia().get(
             status: "ACTIVE",
             isAvailable: true,
             OR: [
-              { categoryId: { in: likedCategoryIds } },
+              {
+                categories: {
+                  some: {
+                    categoryId: { in: likedCategoryIds },
+                  },
+                },
+              },
               likedTagIds.length > 0
                 ? {
                     tags: {
@@ -147,7 +163,7 @@ export const fetchRecommendedProducts = createBaseElysia().get(
         }),
       ]);
 
-      // If not enough recommendation results based on likes, fall back to popular items
+      // Format response
       let enhancedProducts = products.map(
         ({ _count, tags: productTags, likes, ...product }) => ({
           ...product,
@@ -157,6 +173,7 @@ export const fetchRecommendedProducts = createBaseElysia().get(
         }),
       );
 
+      // Fallback: if not enough recommendations, fill with popular products
       if (products.length < perPage) {
         const remainingCount = perPage - products.length;
         const excludeIds = [
@@ -178,10 +195,7 @@ export const fetchRecommendedProducts = createBaseElysia().get(
             categories: {
               include: {
                 category: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
+                  select: { id: true, name: true },
                 },
               },
             },

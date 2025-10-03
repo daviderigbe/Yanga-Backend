@@ -19,7 +19,7 @@ export const orderRoutes = createBaseElysia()
         "/orders/create",
         async ({ body, set }) => {
           try {
-            const { buyerId, items, addressId, isBundle } = body;
+            const { buyerId, items, addressId, isBundle, callbackUrl: customCallbackUrl } = body;
 
             // Validate user exists
             const user = await db.user.findUnique({
@@ -100,12 +100,21 @@ export const orderRoutes = createBaseElysia()
             });
 
             // Initialize payment with orderId in callback URL
-            const callbackUrl = `${process.env.FRONTEND_URL}/payment/callback?orderId=${order.id}`;
+            if (!customCallbackUrl) {
+              set.status = 400;
+              return {
+                status: "error",
+                message: "callbackUrl is required"
+              };
+            }
+
+            const separator = customCallbackUrl.includes("?") ? "&" : "?";
+            const finalCallbackUrl = `${customCallbackUrl}${separator}orderId=${order.id}`;
 
             const payment = await initializePayment(
-                user.email,
-                nairaToKobo(Number(totalAmount)),
-                callbackUrl
+              user.email,
+              nairaToKobo(Number(totalAmount)),
+              finalCallbackUrl
             );
 
             // Store payment reference in order for tracking
@@ -149,6 +158,7 @@ export const orderRoutes = createBaseElysia()
             ),
             addressId: t.String(),
             isBundle: t.Optional(t.Boolean()),
+            callbackUrl: t.Optional(t.String()),
           }),
           detail: {
             tags: ["Orders"],

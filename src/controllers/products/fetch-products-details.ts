@@ -184,7 +184,7 @@ export const fetchProductById = createBaseElysia().get(
         };
       }
 
-      // 🚫 Hide deleted products
+      // Hide deleted products
       if (product.status === "DELETED") {
         set.status = 404;
         return {

@@ -74,7 +74,7 @@ export const editProductDetails = createBaseElysia().patch(
           quantity: body.quantity,
         };
 
-        // 🧩 Automatic logic for quantity & availability
+        // Automatic logic for quantity & availability
         if (typeof body.quantity === "number") {
           if (body.quantity === 0) {
             // Out of stock

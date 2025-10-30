@@ -159,8 +159,8 @@ export const createProduct = createBaseElysia().post(
             discountPercent,
             status,
             brandId, // Use brandId instead of brand
-            quantity, // 👈 include quantity
-            isAvailable: quantity > 0, // 👈 automatically mark availability
+            quantity,
+            isAvailable: quantity > 0, // automatically mark availability
             // Create the product images
             images: {
               create: images.map((url, index) => ({

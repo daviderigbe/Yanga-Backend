@@ -52,6 +52,7 @@ export const createProduct = createBaseElysia().post(
         images = [],
         status = "DRAFT",
         brand = null,
+        quantity,
       } = body;
 
       // 3. Validate category exists
@@ -158,6 +159,8 @@ export const createProduct = createBaseElysia().post(
             discountPercent,
             status,
             brandId, // Use brandId instead of brand
+            quantity, // 👈 include quantity
+            isAvailable: quantity > 0, // 👈 automatically mark availability
             // Create the product images
             images: {
               create: images.map((url, index) => ({
@@ -340,6 +343,8 @@ export const createProduct = createBaseElysia().post(
       return {
         status: "error",
         message: "Failed to create product. Please try again later.",
+        code: error.code || null,
+        meta: error.meta || null,
       };
     }
   },
@@ -358,6 +363,7 @@ export const createProduct = createBaseElysia().post(
       images: t.Array(t.String({ format: "uri" })),
       status: t.Optional(t.Enum(ProductStatus)),
       brand: t.Optional(t.String()),
+      quantity: t.Number({ minimum: 0 }),
     }),
     detail: {
       tags: ["Products"],

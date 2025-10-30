@@ -47,9 +47,18 @@ export const editProductDetails = createBaseElysia().patch(
         };
       }
 
-      const updatedProduct = await db.product.update({
-        where: { id: params.id },
-        data: {
+      if (
+        (body.status === "ACTIVE" && body.quantity === 0) ||
+        (body.isAvailable === true && body.quantity === 0)
+      ) {
+        set.status = "Bad Request";
+        return {
+          status: "error",
+          message: "Cannot mark product as ACTIVE or available while quantity is 0",
+        };
+      }
+
+        const updatedData: any = {
           title: body.title,
           description: body.description,
           basePrice: body.basePrice,
@@ -62,14 +71,35 @@ export const editProductDetails = createBaseElysia().patch(
           brand: body.brand,
           categoryId: body.categoryId,
           isAvailable: body.isAvailable,
-        },
-      });
+          quantity: body.quantity,
+        };
 
-      return {
-        status: "success",
-        message: "Product updated successfully",
-        data: updatedProduct,
-      };
+        // 🧩 Automatic logic for quantity & availability
+        if (typeof body.quantity === "number") {
+          if (body.quantity === 0) {
+            // Out of stock
+            updatedData.isAvailable = false;
+            updatedData.status = "SOLD";
+          } else if (existingProduct.quantity === 0 && body.quantity > 0) {
+            // Restocked — reactivate
+            updatedData.isAvailable = true;
+            updatedData.status = "ACTIVE";
+          } else {
+            updatedData.isAvailable = body.quantity > 0;
+          }
+        }
+
+        const updatedProduct = await db.product.update({
+          where: { id: params.id },
+          data: updatedData,
+        });
+
+        return {
+          status: "success",
+          message: "Product updated successfully",
+          data: updatedProduct,
+        };
+
     } catch (error) {
       log.error("product update error:", error);
       set.status = 500;
@@ -118,6 +148,7 @@ export const editProductDetails = createBaseElysia().patch(
       brand: t.Optional(t.String()),
       categoryId: t.Optional(t.String()),
       isAvailable: t.Optional(t.Boolean()),
+      quantity: t.Optional(t.Number({ minimum: 0 })),
     }),
     detail: {
       tags: ["Products"],

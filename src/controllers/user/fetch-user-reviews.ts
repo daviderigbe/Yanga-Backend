@@ -6,66 +6,76 @@ export const fetchUserReviews = createBaseElysia().get(
   "/:id/reviews",
   async ({ set, log, params, query }) => {
     try {
-      const { id } = params;
+      const { id } = params; // productId
       const { page = "1", limit = "10" } = query;
       const currentPage = parseInt(page);
       const perPage = parseInt(limit);
       const skip = (currentPage - 1) * perPage;
 
+      // Check if product exists
+      const product = await db.product.findUnique({
+        where: { id },
+        select: { id: true, title: true },
+      });
+
+      if (!product) {
+        set.status = 404;
+        return {
+          status: "error",
+          message: "Product not found",
+        };
+      }
+
+      // Fetch reviews and stats
       const [reviews, total, ratingCounts] = await Promise.all([
         db.review.findMany({
-          where: {
-            userId: id,
-          },
+          where: { productId: id },
           select: {
             id: true,
             rating: true,
             description: true,
+            createdAt: true,
             user: {
               select: {
+                id: true,
                 name: true,
                 imageUrl: true,
               },
             },
-            product: {
-              select: {
-                id: true,
-                images: {
-                  orderBy: {
-                    order: "asc",
-                  },
-                  select: {
-                    url: true,
-                  },
-                },
-              },
-            },
           },
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
           skip,
           take: perPage,
         }),
-        db.review.count({
-          where: {
-            userId: id,
-          },
-        }),
-        // Get counts for each rating (1-5 stars)
+        db.review.count({ where: { productId: id } }),
         Promise.all(
           [1, 2, 3, 4, 5].map((rating) =>
-            db.review.count({
-              where: {
-                userId: id,
-                rating: rating,
-              },
-            }),
+            db.review.count({ where: { productId: id, rating } }),
           ),
         ),
       ]);
 
-      // Create a ratings distribution object
+      // Handle case: no reviews yet
+      if (total === 0) {
+        return {
+          status: "success",
+          message: `No reviews for "${product.title}" yet.`,
+          data: {
+            items: [],
+            ratingsDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+            pagination: {
+              total: 0,
+              lastPage: 1,
+              currentPage,
+              perPage,
+              prev: null,
+              next: null,
+            },
+          },
+        };
+      }
+
+      // Ratings distribution and pagination
       const ratingsDistribution = {
         1: ratingCounts[0],
         2: ratingCounts[1],
@@ -78,15 +88,15 @@ export const fetchUserReviews = createBaseElysia().get(
 
       return {
         status: "success",
-        message: "Reviews retrieved successfully",
+        message: "Product reviews retrieved successfully",
         data: {
           items: reviews.map((review) => ({
             id: review.id,
-            productImages: review.product.images.map((image) => image.url),
             reviewerName: review.user.name,
             reviewerImageUrl: review.user.imageUrl,
             rating: review.rating,
-            reviewerComment: review.description,
+            comment: review.description,
+            createdAt: review.createdAt,
           })),
           ratingsDistribution,
           pagination: {
@@ -104,7 +114,7 @@ export const fetchUserReviews = createBaseElysia().get(
       set.status = 500;
       return {
         status: "error",
-        message: "Failed to fetch user reviews",
+        message: "Failed to fetch product reviews",
       };
     }
   },
@@ -117,9 +127,9 @@ export const fetchUserReviews = createBaseElysia().get(
       id: t.String(),
     }),
     detail: {
-      tags: ["Users"],
-      summary: "Fetch user reviews",
-      description: "Fetch reviews written by a user with pagination",
+      tags: ["Products"],
+      summary: "Fetch product reviews",
+      description: "Fetch reviews for a specific product with pagination",
     },
   },
 );

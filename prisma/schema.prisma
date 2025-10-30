@@ -136,6 +136,7 @@ model Product {
   // Timestamps and Metadata
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  quantity   Int            @default(1)
   isAvailable  Boolean       @default(true)
   cartItem     CartItem[]
   messages     Message[]

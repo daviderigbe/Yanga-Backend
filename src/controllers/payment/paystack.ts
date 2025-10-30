@@ -180,9 +180,7 @@ export const orderRoutes = createBaseElysia()
               where: { id: orderId },
               include: {
                 items: {
-                  include: {
-                    product: true,
-                  },
+                  include: { product: true },
                 },
               },
             });
@@ -239,19 +237,19 @@ export const orderRoutes = createBaseElysia()
               // Double-check order status within transaction
               const currentOrder = await tx.order.findUnique({
                 where: { id: orderId },
-                select: { status: true, paymentReference: true }
+                select: { status: true, paymentReference: true },
               });
 
               if (currentOrder?.status !== "PENDING") {
                 throw new Error("Order already processed");
               }
 
-              // Update order status and confirm payment reference
+              // Update order status and confirm payment
               await tx.order.update({
                 where: { id: orderId },
                 data: {
                   status: "PROCESSING",
-                  paymentReference: reference
+                  paymentReference: reference,
                 },
               });
 
@@ -269,17 +267,31 @@ export const orderRoutes = createBaseElysia()
                 });
               }
 
-              // Mark products as sold if quantity was 1
+              // Update product stock and availability
               for (const item of order.items) {
-                if (item.quantity === 1) {
-                  await tx.product.update({
-                    where: { id: item.productId },
-                    data: {
-                      status: "SOLD",
-                      isAvailable: false
-                    },
-                  });
+                const product = await tx.product.findUnique({
+                  where: { id: item.productId },
+                  select: { quantity: true },
+                });
+
+                if (!product) {
+                  throw new Error(`Product ${item.productId} not found`);
                 }
+
+                  if (product.quantity < item.quantity) {
+                    throw new Error(`Insufficient stock for product ${item.productId}`);
+                  }
+
+                const newQuantity = product.quantity - item.quantity;
+
+                await tx.product.update({
+                  where: { id: item.productId },
+                  data: {
+                    quantity: newQuantity < 0 ? 0 : newQuantity,
+                    isAvailable: newQuantity > 0,
+                    status: newQuantity > 0 ? "ACTIVE" : "SOLD",
+                  },
+                });
               }
             });
 
@@ -296,7 +308,7 @@ export const orderRoutes = createBaseElysia()
             set.status = 500;
             return {
               status: "error",
-              message: err.message || "Payment verification failed"
+              message: err.message || "Payment verification failed",
             };
           }
         },

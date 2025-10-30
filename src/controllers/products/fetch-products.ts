@@ -56,6 +56,7 @@ const ProductResponseSchema = t.Object({
             name: t.String(),
           }),
           isAvailable: t.Boolean(),
+          quantity: t.Number(),
           createdAt: t.String(),
           updatedAt: t.String(),
           isNew: t.Boolean(),
@@ -117,6 +118,7 @@ export const fetchProducts = createBaseElysia().get(
           where: {
             status,
             isAvailable: true,
+            quantity: { gt: 0 },
             ...(search && {
               OR: [
                 { title: { contains: search, mode: "insensitive" } },
@@ -188,6 +190,7 @@ export const fetchProducts = createBaseElysia().get(
           where: {
             status,
             isAvailable: true,
+            quantity: { gt: 0 },
             ...(search && {
               OR: [
                 { title: { contains: search, mode: "insensitive" } },
@@ -222,6 +225,7 @@ export const fetchProducts = createBaseElysia().get(
         data: {
           items: products.map((product) => ({
             ...product,
+             quantity: product.quantity,
             // Check if product is new (posted within the last 7 days)
             isNew: new Date(product.createdAt) > sevenDaysAgo,
             // Check if the product is liked by the current user

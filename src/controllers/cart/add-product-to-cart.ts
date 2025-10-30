@@ -79,12 +79,29 @@ export const addToCart = createBaseElysia().post(
         },
       });
 
+      // Calculate intended quantity
+      const newQuantity = existingItem
+        ? existingItem.quantity + body.quantity
+        : body.quantity;
+
+      // Check available stock
+      if (newQuantity > product.quantity) {
+        set.status = "Bad Request";
+        return {
+          status: "error",
+          message: `Only ${product.quantity} ${
+            product.quantity === 1 ? "item" : "items"
+          } available for "${product.title}".`,
+        };
+      }
+
+      // Update or create item in cart
       if (existingItem) {
         // Update quantity if item already exists
         await db.cartItem.update({
           where: { id: existingItem.id },
           data: {
-            quantity: existingItem.quantity + body.quantity,
+            quantity: newQuantity,
             updatedAt: new Date(),
           },
         });

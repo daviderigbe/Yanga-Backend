@@ -72,6 +72,7 @@ const SingleProductResponseSchema = t.Object({
         bio: t.Optional(t.String()),
         followers: t.Optional(t.Number()),
       }),
+      quantity: t.Number(),
       isAvailable: t.Boolean(),
       createdAt: t.String(),
       updatedAt: t.String(),
@@ -180,6 +181,15 @@ export const fetchProductById = createBaseElysia().get(
         return {
           status: "error",
           message: "Product not found",
+        };
+      }
+
+      // 🚫 Hide deleted products
+      if (product.status === "DELETED") {
+        set.status = 404;
+        return {
+          status: "error",
+          message: "Product not found or no longer available",
         };
       }
 

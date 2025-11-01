@@ -1,9 +1,8 @@
 import { t } from "elysia";
 import { createBaseElysia } from "../../base";
 import { db } from "../../lib/db";
-import { validateSessionToken } from "../../lib/auth"; // Make sure this is imported
+import { validateSessionToken } from "../../lib/auth";
 
-// Update the response schema to include isFollowing
 const UserResponseSchema = t.Object({
   status: t.Enum({ success: "success", error: "error" }),
   message: t.String(),
@@ -20,13 +19,14 @@ const UserResponseSchema = t.Object({
       unavailableUntil: t.Optional(t.Union([t.String(), t.Null()])),
       createdAt: t.Union([t.String(), t.Date()]),
       updatedAt: t.Union([t.String(), t.Date()]),
-      isFollowing: t.Optional(t.Boolean()), // Add isFollowing field
+      isFollowing: t.Optional(t.Boolean()),
       stats: t.Object({
         productsCount: t.Number(),
         soldCount: t.Number(),
         followersCount: t.Number(),
         followingCount: t.Number(),
         averageRating: t.Optional(t.Union([t.Number(), t.Null()])),
+        reviewsCount: t.Number(),
       }),
     }),
   ),
@@ -43,15 +43,13 @@ export const fetchUserById = createBaseElysia().get(
       if (session && session.value) {
         try {
           const sessionData = await validateSessionToken(session.value);
-          if (sessionData && sessionData.user) {
-            currentUser = sessionData.user;
-          }
+          if (sessionData?.user) currentUser = sessionData.user;
         } catch (error) {
-          // Invalid session, but we can still return user data without isFollowing
-          log.error("Session validation error:", error);
+          log.warn("Session validation error:", error);
         }
       }
 
+      // Fetch user and related data
       const user = await db.user.findUnique({
         where: { id },
         include: {
@@ -62,66 +60,54 @@ export const fetchUserById = createBaseElysia().get(
               following: true,
             },
           },
-          reviews: {
-            select: {
-              rating: true,
-            },
-          },
           products: {
-            where: {
-              status: "SOLD",
-            },
             select: {
               id: true,
+              status: true,
+              reviews: {
+                select: { rating: true },
+              },
             },
           },
           followers: currentUser
-            ? {
-                where: {
-                  followerId: currentUser.id,
-                },
-              }
+            ? { where: { followerId: currentUser.id } }
             : undefined,
         },
       });
 
       if (!user) {
         set.status = 404;
-        return {
-          status: "error",
-          message: "User not found",
-        };
+        return { status: "error", message: "User not found" };
       }
 
-      const {
-        password,
-        googleId,
-        appleId,
-        _count,
-        reviews,
-        products,
-        followers,
-        ...userData
-      } = user;
+      // Gather all reviews across user's products
+      const allProductReviews = user.products.flatMap((p) => p.reviews);
 
-      // Calculate average rating
-      const averageRating =
-        reviews.length > 0
-          ? reviews.reduce((acc, rev) => acc + rev.rating, 0) / reviews.length
-          : null;
+      // Calculate average rating and review count
+      let averageRating: number | null = null;
+      let reviewsCount = allProductReviews.length;
 
-      // Determine if current user is following this user
-      const isFollowing = currentUser ? followers.length > 0 : undefined;
+      if (reviewsCount > 0) {
+        const total = allProductReviews.reduce((sum, r) => sum + r.rating, 0);
+        averageRating = Number((total / reviewsCount).toFixed(1));
+      }
+
+      // Count sold products
+      const soldCount = user.products.filter((p) => p.status === "SOLD").length;
+
+      // Determine if current user follows this user
+      const isFollowing = currentUser ? user.followers.length > 0 : undefined;
 
       const transformedUser = {
-        ...userData,
+        ...user,
         isFollowing,
         stats: {
-          productsCount: _count.products,
-          soldCount: products.length,
-          followersCount: _count.followers,
-          followingCount: _count.following,
+          productsCount: user._count.products,
+          soldCount,
+          followersCount: user._count.followers,
+          followingCount: user._count.following,
           averageRating,
+          reviewsCount,
         },
       };
 
@@ -140,15 +126,13 @@ export const fetchUserById = createBaseElysia().get(
     }
   },
   {
-    params: t.Object({
-      id: t.String(),
-    }),
+    params: t.Object({ id: t.String() }),
     response: UserResponseSchema,
     detail: {
       tags: ["Users"],
       summary: "Fetch user profile",
       description:
-        "Fetch basic user information and stats including whether the current user is following them",
+        "Fetch user profile with stats including product counts, sold items, followers, following, average rating across all reviewed products, and total reviews count.",
     },
   },
 );

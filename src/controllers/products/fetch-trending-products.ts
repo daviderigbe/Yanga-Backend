@@ -52,7 +52,13 @@ export const fetchTrendingProducts = createBaseElysia().get(
           : {}),
         ...(gender ? { gender } : {}),
         ...(condition ? { condition } : {}),
-        ...(brand ? { brand } : {}),
+        ...(brand
+          ? {
+              brand: {
+                name: brand,
+              },
+            }
+          : {}),
         ...(color ? { color } : {}),
         ...(size ? { size } : {}),
         ...(minPrice || maxPrice
@@ -67,32 +73,34 @@ export const fetchTrendingProducts = createBaseElysia().get(
 
       // Raw SQL query (with categories join)
       const sqlQuery = Prisma.sql`
-        SELECT p.*, 
-          COUNT(DISTINCT l.id) as like_count,
-          COUNT(DISTINCT v.id) as view_count,
-          COUNT(DISTINCT c.id) as cart_additions
-        FROM "Product" p
-        LEFT JOIN "Like" l ON p."id" = l."productId" 
-          AND l."createdAt" >= ${trendingPeriodStart}
-        LEFT JOIN "CartItem" c ON p."id" = c."productId" 
-          AND c."createdAt" >= ${trendingPeriodStart}
-        LEFT JOIN "ProductView" v ON p."id" = v."productId" 
-          AND v."viewedAt" >= ${trendingPeriodStart}
-        LEFT JOIN "CategoriesOnProducts" cop ON p."id" = cop."productId"
-        WHERE p."status" = 'ACTIVE' AND p."isAvailable" = true
-        ${categoryId ? Prisma.sql`AND cop."categoryId" = ${categoryId}` : Prisma.sql``}
-        ${gender ? Prisma.sql`AND p."gender" = ${gender}` : Prisma.sql``}
-        ${condition ? Prisma.sql`AND p."condition" = ${condition}` : Prisma.sql``}
-        ${brand ? Prisma.sql`AND p."brand" = ${brand}` : Prisma.sql``}
-        ${color ? Prisma.sql`AND p."color" = ${color}` : Prisma.sql``}
-        ${size ? Prisma.sql`AND p."size" = ${size}` : Prisma.sql``}
-        ${minPrice ? Prisma.sql`AND p."basePrice" >= ${parseFloat(minPrice)}` : Prisma.sql``}
-        ${maxPrice ? Prisma.sql`AND p."basePrice" <= ${parseFloat(maxPrice)}` : Prisma.sql``}
-        GROUP BY p."id"
-        ORDER BY (COUNT(DISTINCT l.id) * 3 + COUNT(DISTINCT c.id) * 2 + COUNT(DISTINCT v.id)) DESC
-        LIMIT ${perPage}
-        OFFSET ${skip}
-      `;
+      SELECT p.*, 
+        COUNT(DISTINCT l.id) as like_count,
+        COUNT(DISTINCT v.id) as view_count,
+        COUNT(DISTINCT c.id) as cart_additions
+      FROM "Product" p
+      LEFT JOIN "Like" l ON p."id" = l."productId" 
+        AND l."createdAt" >= ${trendingPeriodStart}
+      LEFT JOIN "CartItem" c ON p."id" = c."productId" 
+        AND c."createdAt" >= ${trendingPeriodStart}
+      LEFT JOIN "ProductView" v ON p."id" = v."productId" 
+        AND v."viewedAt" >= ${trendingPeriodStart}
+      LEFT JOIN "CategoriesOnProducts" cop ON p."id" = cop."productId"
+      LEFT JOIN "Brand" b ON p."brandId" = b."id"
+      WHERE p."status" = 'ACTIVE' AND p."isAvailable" = true
+      ${categoryId ? Prisma.sql`AND cop."categoryId" = ${categoryId}` : Prisma.sql``}
+      ${gender ? Prisma.sql`AND p."gender" = ${gender}::"Gender"` : Prisma.sql``}
+      ${condition ? Prisma.sql`AND p."condition" = ${condition}::"Condition"` : Prisma.sql``}
+      ${brand ? Prisma.sql`AND b."name" = ${brand}` : Prisma.sql``}
+      ${color ? Prisma.sql`AND p."color" = ${color}` : Prisma.sql``}
+      ${size ? Prisma.sql`AND p."size" = ${size}` : Prisma.sql``}
+      ${minPrice ? Prisma.sql`AND p."basePrice" >= ${parseFloat(minPrice)}` : Prisma.sql``}
+      ${maxPrice ? Prisma.sql`AND p."basePrice" <= ${parseFloat(maxPrice)}` : Prisma.sql``}
+      GROUP BY p."id"
+      ORDER BY (COUNT(DISTINCT l.id) * 3 + COUNT(DISTINCT c.id) * 2 + COUNT(DISTINCT v.id)) DESC
+      LIMIT ${perPage}
+      OFFSET ${skip}
+    `;
+
 
       const [products, total] = await Promise.all([
         db.$queryRaw(sqlQuery),
@@ -114,6 +122,9 @@ export const fetchTrendingProducts = createBaseElysia().get(
                 select: { id: true, name: true },
               },
             },
+          },
+          brand: {
+            select: { id: true, name: true, logoUrl: true },
           },
           seller: {
             select: { id: true, name: true, userName: true, imageUrl: true },

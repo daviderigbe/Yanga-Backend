@@ -11,52 +11,74 @@ interface EmailVerificationData {
   userId: string;
   email: string;
 }
+function validatePassword(password: string) {
+  const errors: string[] = [];
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push("Password must contain at least one uppercase letter.");
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push("Password must contain at least one lowercase letter.");
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push("Password must contain at least one number.");
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    errors.push("Password must contain at least one special character.");
+  }
+
+  return errors;
+}
 
 export const signup = createBaseElysia().post(
   "signup",
   async ({ body, set, log }) => {
+    const email = body.email.toLowerCase().trim();
+    const username = body.username.toLowerCase().trim();
+
     try {
-      const { email, password, name, username } = body;
-
-      // Check if email already exists
-      const existingEmail = await db.user.findUnique({
-        where: {
-          email,
-        },
-      });
-      if (existingEmail) {
-        log.error("User with this email already exists");
-        set.status = "Conflict";
+      // Password strength check
+      const passwordErrors = validatePassword(body.password);
+      if (passwordErrors.length > 0) {
+        set.status = 400;
         return {
           status: "error",
-          message: "User with this email already exists",
+          message: passwordErrors.join(" "),
         } as ApiResponse<null>;
       }
 
-      // Check if username already exists
-      const existingUsername = await db.user.findUnique({
-        where: {
-          userName: username,
-        },
-      });
-      if (existingUsername) {
-        log.error("User with this username already exists");
-        set.status = "Conflict";
+      // Uniqueness checks
+      const [emailExists, usernameExists] = await Promise.all([
+        db.user.findUnique({ where: { email } }),
+        db.user.findUnique({ where: { userName: username } }),
+      ]);
+
+      if (emailExists) {
+        set.status = 409;
         return {
           status: "error",
-          message: "User with this username already exists",
+          message: "User with this email already exists.",
         } as ApiResponse<null>;
       }
 
-      // Hash password and create user (emailVerified defaults to false)
-      const passwordHash = await Bun.password.hash(password);
-      const newUser = await db.user.create({
+      if (usernameExists) {
+        set.status = 409;
+        return {
+          status: "error",
+          message: "User with this username already exists.",
+        } as ApiResponse<null>;
+      }
+
+      // Hash password
+      const passwordHash = await Bun.password.hash(body.password);
+
+      const user = await db.user.create({
         data: {
           email,
-          name,
+          name: body.name,
           userName: username,
           password: passwordHash,
-          emailVerified: false, // Explicitly set to false
+          emailVerified: false,
         },
         select: {
           id: true,
@@ -67,87 +89,61 @@ export const signup = createBaseElysia().post(
         },
       });
 
-      // Generate verification code (6 digits)
-      const code = randomBytes(3).toString("hex").substring(0, 6).toUpperCase();
+      // Generate verification code
+      const code = randomBytes(3).toString("hex").toUpperCase();
 
-      // Store code in Redis with 15 minute expiration
-      const redisKey = `email_verification:${email}`;
-      const verificationData: EmailVerificationData = {
-        code,
-        userId: newUser.id,
-        email: newUser.email,
-      };
-
-      await redisClient.set(redisKey, JSON.stringify(verificationData), {
-        EX: 15 * 60, // 15 minutes TTL
-      });
-
-      // Send verification code via email
-      try {
-        await sendEmail({
-          to: email,
-          subject: "Welcome! Please verify your email",
-          body: `Welcome to our platform! Your email verification code is: ${code}. It will expire in 15 minutes. Please verify your email before logging in.`,
+      redisClient
+        .set(
+          `email_verification:${email}`,
+          JSON.stringify({
+            code,
+            userId: user.id,
+            email: user.email,
+          }),
+          { EX: 15 * 60 },
+        )
+        .catch(err => {
+          log.error("[Redis Set Failed]:", err);
         });
-      } catch (emailError) {
-        log.error("Failed to send verification email:", emailError);
-        // Continue with signup success even if email fails
-        // The user can still request a new verification code later
-      }
 
       set.status = 201;
+
+      // Fire-and-forget email
+      sendEmail({
+        to: email,
+        subject: "Verify your email",
+        body: `Your verification code is ${code}. It expires in 15 minutes.`,
+      }).catch(err => {
+        log.error("[Email Send Failed]:", err);
+      });
+
       return {
         status: "success",
         message:
-          "User created successfully. Please check your email for verification code.",
+          "Account created successfully. Please check your email to verify your account.",
         data: {
-          user: newUser,
+          user,
           requiresEmailVerification: true,
         },
       } as ApiResponse<{
-        user: typeof newUser;
+        user: typeof user;
         requiresEmailVerification: boolean;
       }>;
-    } catch (error) {
-      log.error("[Signup Error]:", error);
-
-      // Determine if it's a known error type
-      if (error instanceof Error) {
-        set.status = 400;
-        return {
-          status: "error",
-          message: "Invalid request data",
-        } as ApiResponse<null>;
-      }
-
+    } catch (err) {
+      log.error("[Signup Error]:", err);
       set.status = 500;
       return {
         status: "error",
-        message: "An unexpected error occurred",
+        message: "Something went wrong while creating your account.",
       } as ApiResponse<null>;
     }
   },
   {
     body: t.Object({
-      name: t.String({
-        minLength: 3,
-        maxLength: 32,
-        error: "Name must be between 3 and 32 characters long.",
-      }),
-      email: t.String({
-        format: "email",
-        error: "Invalid email address.",
-      }),
-      password: t.String({
-        minLength: 8,
-        maxLength: 64,
-        error: "Password must be between 8 and 64 characters long.",
-      }),
-      username: t.String({
-        minLength: 3,
-        maxLength: 32,
-        error: "Username must be between 3 and 32 characters long.",
-      }),
+      name: t.String({ minLength: 3, maxLength: 32 }),
+      email: t.String({ format: "email" }),
+      password: t.String({ minLength: 8, maxLength: 64 }),
+      username: t.String({ minLength: 3, maxLength: 32 }),
     }),
     response: t.Object({
       status: t.Union([t.Literal("success"), t.Literal("error")]),

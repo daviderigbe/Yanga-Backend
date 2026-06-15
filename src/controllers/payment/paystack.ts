@@ -139,8 +139,9 @@ export const orderRoutes = createBaseElysia()
               itemCount: mergedItems.reduce((sum, item) => sum + item.quantity, 0),
               serviceLevel: body.deliveryServiceLevel,
             });
-            const deliveryFee = quote.amount;
-            const totalAmount = subtotalAmount + deliveryFee;
+            const providerDeliveryFee = quote.amount;
+            const fees = calculateMarketplaceFees(subtotalAmount, providerDeliveryFee);
+            const totalAmount = fees.totalAmount;
 
             // Create the order
             const order = await db.order.create({
@@ -149,7 +150,13 @@ export const orderRoutes = createBaseElysia()
                 addressId,
                 isBundle,
                 subtotalAmount,
-                deliveryFee,
+                providerDeliveryFee,
+                deliveryMarkup: fees.deliveryMarkup,
+                deliveryFee: fees.deliveryFee,
+                serviceFee: fees.serviceFee,
+                commissionAmount: fees.commissionAmount,
+                sellerPayoutAmount: fees.sellerPayoutAmount,
+                platformRevenueAmount: fees.platformRevenueAmount,
                 totalAmount,
                 status: "PENDING",
                 items: {
@@ -160,7 +167,7 @@ export const orderRoutes = createBaseElysia()
                     provider: quote.provider,
                     serviceLevel: quote.serviceLevel,
                     status: "QUOTED",
-                    deliveryFee,
+                    deliveryFee: fees.deliveryFee,
                     currency: quote.currency,
                     pickupName: pickupAddress.contactName || config.DISPATCH_PICKUP_NAME,
                     pickupPhone: pickupAddress.contactPhone || config.DISPATCH_PICKUP_PHONE,
@@ -200,7 +207,13 @@ export const orderRoutes = createBaseElysia()
               message: "Order created with delivery quote",
               metadata: {
                 subtotalAmount,
-                deliveryFee,
+                providerDeliveryFee,
+                deliveryMarkup: fees.deliveryMarkup,
+                deliveryFee: fees.deliveryFee,
+                serviceFee: fees.serviceFee,
+                commissionAmount: fees.commissionAmount,
+                sellerPayoutAmount: fees.sellerPayoutAmount,
+                platformRevenueAmount: fees.platformRevenueAmount,
                 totalAmount,
                 dispatchProvider: quote.provider,
                 dispatchLive: quote.isLive,
@@ -239,7 +252,13 @@ export const orderRoutes = createBaseElysia()
               order: {
                 id: order.id,
                 subtotalAmount: Number(subtotalAmount),
-                deliveryFee: Number(deliveryFee),
+                providerDeliveryFee: Number(providerDeliveryFee),
+                deliveryMarkup: Number(fees.deliveryMarkup),
+                deliveryFee: Number(fees.deliveryFee),
+                serviceFee: Number(fees.serviceFee),
+                commissionAmount: Number(fees.commissionAmount),
+                sellerPayoutAmount: Number(fees.sellerPayoutAmount),
+                platformRevenueAmount: Number(fees.platformRevenueAmount),
                 totalAmount: Number(totalAmount),
                 items: order.items,
                 shipment: order.shipment,
@@ -708,4 +727,28 @@ function mergeOrderItems(items: { productId: string; quantity: number }[]) {
   }
 
   return Array.from(merged.values());
+}
+
+function calculateMarketplaceFees(subtotalAmount: number, providerDeliveryFee: number) {
+  const commissionAmount = roundMoney(subtotalAmount * config.PLATFORM_COMMISSION_RATE);
+  const serviceFee = roundMoney((subtotalAmount * config.BUYER_SERVICE_FEE_RATE) + config.BUYER_SERVICE_FEE_NAIRA);
+  const deliveryMarkup = roundMoney((providerDeliveryFee * config.DELIVERY_MARKUP_RATE) + config.DELIVERY_MARKUP_NAIRA);
+  const deliveryFee = roundMoney(providerDeliveryFee + deliveryMarkup);
+  const sellerPayoutAmount = roundMoney(subtotalAmount - commissionAmount);
+  const platformRevenueAmount = roundMoney(commissionAmount + serviceFee + deliveryMarkup);
+  const totalAmount = roundMoney(subtotalAmount + deliveryFee + serviceFee);
+
+  return {
+    commissionAmount,
+    serviceFee,
+    deliveryMarkup,
+    deliveryFee,
+    sellerPayoutAmount,
+    platformRevenueAmount,
+    totalAmount,
+  };
+}
+
+function roundMoney(amount: number) {
+  return Math.round(amount * 100) / 100;
 }

@@ -84,11 +84,14 @@ export function normalizeDispatchProvider(provider?: string): DispatchProvider {
 }
 
 export function ensureLagosDelivery(address: Pick<DeliveryAddress, "state" | "country">) {
-  if (address.country.toLowerCase() !== "nigeria") {
+  const country = normalizeLocationName(address.country);
+  const state = normalizeLocationName(address.state).replace(/\s+state$/, "");
+
+  if (country !== "nigeria") {
     throw new Error("Delivery is only available in Nigeria right now");
   }
 
-  if (address.state.toLowerCase() !== "lagos") {
+  if (state !== "lagos") {
     throw new Error("Dispatch is currently available only within Lagos");
   }
 }
@@ -795,6 +798,10 @@ function numberFromUnknown(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeLocationName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 function extractAmount(response: any) {
   return Number(
     response?.billBreakdown?.data?.NET_PAYABLE_AMOUNT ||
@@ -870,6 +877,19 @@ function getShipmentTimestampField(status: DeliveryStatus) {
 
 async function settleSellerWalletsForDeliveredOrder(orderId: string) {
   await db.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: {
+        subtotalAmount: true,
+        commissionAmount: true,
+        sellerPayoutAmount: true,
+      },
+    });
+
+    if (!order) {
+      throw new Error("Order not found for seller settlement");
+    }
+
     const unsettledItems = await tx.orderItem.findMany({
       where: {
         orderId,
@@ -888,17 +908,40 @@ async function settleSellerWalletsForDeliveredOrder(orderId: string) {
       return;
     }
 
+    const subtotalAmount = Number(order.subtotalAmount);
+    const sellerPayoutAmount = Number(order.sellerPayoutAmount);
+    const commissionAmount = Number(order.commissionAmount);
+    const fallbackPayout = unsettledItems.reduce(
+      (sum, item) => sum + Number(item.price) * item.quantity,
+      0,
+    );
+    const payoutPool = sellerPayoutAmount > 0 ? sellerPayoutAmount : fallbackPayout;
+
+    const payoutsBySeller = new Map<string, { amount: number; items: typeof unsettledItems }>();
     for (const item of unsettledItems) {
-      const amountInKobo = Math.round(Number(item.price) * item.quantity * 100);
+      const grossItemAmount = Number(item.price) * item.quantity;
+      const itemPayout =
+        subtotalAmount > 0 && sellerPayoutAmount > 0
+          ? roundMoney((grossItemAmount / subtotalAmount) * payoutPool)
+          : grossItemAmount;
+      const sellerId = item.product.sellerId;
+      const sellerPayout = payoutsBySeller.get(sellerId) || { amount: 0, items: [] as typeof unsettledItems };
+      sellerPayout.amount = roundMoney(sellerPayout.amount + itemPayout);
+      sellerPayout.items.push(item);
+      payoutsBySeller.set(sellerId, sellerPayout);
+    }
+
+    for (const [sellerId, payout] of payoutsBySeller.entries()) {
+      const amountInKobo = Math.round(payout.amount * 100);
 
       await tx.wallet.upsert({
-        where: { userId: item.product.sellerId },
+        where: { userId: sellerId },
         update: { balance: { increment: amountInKobo } },
-        create: { userId: item.product.sellerId, balance: amountInKobo },
+        create: { userId: sellerId, balance: amountInKobo },
       });
 
-      await tx.orderItem.update({
-        where: { id: item.id },
+      await tx.orderItem.updateMany({
+        where: { id: { in: payout.items.map((item) => item.id) } },
         data: { sellerSettledAt: new Date() },
       });
     }
@@ -912,10 +955,20 @@ async function settleSellerWalletsForDeliveredOrder(orderId: string) {
           settledItems: unsettledItems.map((item) => ({
             orderItemId: item.id,
             sellerId: item.product.sellerId,
-            amount: Number(item.price) * item.quantity,
+            grossAmount: Number(item.price) * item.quantity,
+          })),
+          commissionAmount,
+          sellerPayoutAmount: payoutPool,
+          payoutsBySeller: Array.from(payoutsBySeller.entries()).map(([sellerId, payout]) => ({
+            sellerId,
+            amount: payout.amount,
           })),
         } as any,
       },
     });
   });
+}
+
+function roundMoney(amount: number) {
+  return Math.round(amount * 100) / 100;
 }

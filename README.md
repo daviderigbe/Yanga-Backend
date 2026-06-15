@@ -26,6 +26,24 @@ seller's `SHIPPING` address. The pickup and dropoff addresses both need Lagos co
 phone numbers plus latitude/longitude for live Kwik dispatch. Multi-seller checkout is
 blocked until split shipments are added.
 
+## Marketplace Revenue
+
+Checkout records the full marketplace money split on each order:
+
+- `subtotalAmount`: product total before fees.
+- `providerDeliveryFee`: raw Kwik/manual dispatch cost.
+- `deliveryMarkup`: AFRA B delivery margin.
+- `deliveryFee`: customer-facing delivery fee.
+- `serviceFee`: buyer service/handling fee.
+- `commissionAmount`: AFRA B seller commission.
+- `sellerPayoutAmount`: amount credited to the seller after delivery.
+- `platformRevenueAmount`: commission plus service fee plus delivery markup.
+- `totalAmount`: amount charged on Paystack.
+
+Defaults are 10% seller commission, a ₦200 buyer service fee, and no delivery markup.
+Adjust `PLATFORM_COMMISSION_RATE`, `BUYER_SERVICE_FEE_*`, and `DELIVERY_MARKUP_*` in
+`.env` when the business rules change.
+
 The live Kwik flow uses:
 
 - `POST /vendor_login` to obtain the API access token and account identifiers.

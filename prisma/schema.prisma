@@ -297,7 +297,13 @@ model Order {
   status       OrderStatus @default(PENDING)
   isBundle     Boolean     @default(false)
   subtotalAmount Decimal    @default(0) @db.Decimal(10, 2)
+  providerDeliveryFee Decimal @default(0) @db.Decimal(10, 2)
+  deliveryMarkup Decimal     @default(0) @db.Decimal(10, 2)
   deliveryFee  Decimal      @default(0) @db.Decimal(10, 2)
+  serviceFee   Decimal      @default(0) @db.Decimal(10, 2)
+  commissionAmount Decimal  @default(0) @db.Decimal(10, 2)
+  sellerPayoutAmount Decimal @default(0) @db.Decimal(10, 2)
+  platformRevenueAmount Decimal @default(0) @db.Decimal(10, 2)
   totalAmount  Decimal     @db.Decimal(10, 2)
   discountCode String?
   addressId    String

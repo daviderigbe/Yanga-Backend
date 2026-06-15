@@ -23,13 +23,23 @@ ADD COLUMN "longitude" DECIMAL(10,7);
 
 -- AlterTable
 ALTER TABLE "Order" ADD COLUMN "deliveryFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "providerDeliveryFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "deliveryMarkup" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "serviceFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "commissionAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "sellerPayoutAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "platformRevenueAmount" DECIMAL(10,2) NOT NULL DEFAULT 0,
 ADD COLUMN "subtotalAmount" DECIMAL(10,2) NOT NULL DEFAULT 0;
 
 -- AlterTable
 ALTER TABLE "OrderItem" ADD COLUMN "sellerSettledAt" TIMESTAMP(3);
 
 -- Backfill subtotal for existing orders
-UPDATE "Order" SET "subtotalAmount" = "totalAmount" WHERE "subtotalAmount" = 0;
+UPDATE "Order"
+SET
+  "subtotalAmount" = "totalAmount",
+  "sellerPayoutAmount" = "totalAmount"
+WHERE "subtotalAmount" = 0;
 
 -- CreateTable
 CREATE TABLE "Shipment" (

@@ -83,23 +83,26 @@ export function normalizeDispatchProvider(provider?: string): DispatchProvider {
   return provider?.toUpperCase() === "MANUAL" ? "MANUAL" : "KWIK";
 }
 
-export function ensureLagosDelivery(address: Pick<DeliveryAddress, "state" | "country">) {
+export function ensureLagosDelivery(
+  address: Pick<DeliveryAddress, "state" | "country">,
+  label = "Delivery address",
+) {
   const country = normalizeLocationName(address.country);
   const state = normalizeLocationName(address.state).replace(/\s+state$/, "");
 
-  if (country !== "nigeria") {
-    throw new Error("Delivery is only available in Nigeria right now");
+  if (!country.split(" ").includes("nigeria")) {
+    throw new Error(`${label} must be in Nigeria`);
   }
 
-  if (state !== "lagos") {
-    throw new Error("Dispatch is currently available only within Lagos");
+  if (!state.split(" ").includes("lagos")) {
+    throw new Error(`${label} must be within Lagos`);
   }
 }
 
 export async function getDispatchQuote(input: QuoteInput) {
-  ensureLagosDelivery(input.address);
+  ensureLagosDelivery(input.address, "Delivery address");
   const pickupAddress = input.pickupAddress || getConfiguredPickupAddress();
-  ensureLagosDelivery(pickupAddress);
+  ensureLagosDelivery(pickupAddress, "Pickup address");
 
   const serviceLevel = input.serviceLevel || "STANDARD";
   const localQuote = calculateLocalDeliveryFee(input.itemCount, serviceLevel);
@@ -178,7 +181,7 @@ export async function createDispatchShipment(input: { orderId: string }) {
     throw new Error("Order must be paid and processing before dispatch can be created");
   }
 
-  ensureLagosDelivery(order.address);
+  ensureLagosDelivery(order.address, "Delivery address");
 
   const shipment = order.shipment || await db.shipment.create({
     data: buildShipmentSnapshot(order),
@@ -799,7 +802,12 @@ function numberFromUnknown(value: unknown) {
 }
 
 function normalizeLocationName(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function extractAmount(response: any) {

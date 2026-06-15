@@ -34,6 +34,38 @@ export const addresses = createBaseElysia()
           return { status: "error", message: "Invalid session" };
         }
 
+        const normalizedInput = {
+          street: normalizeText(body.address),
+          city: normalizeText(body.city),
+          state: normalizeText(body.state),
+          country: normalizeText(body.country || "Nigeria"),
+          zipCode: normalizeText(body.zipCode || ""),
+          landmark: normalizeText(body.landmark || ""),
+        };
+
+        const existingAddresses = await db.address.findMany({
+          where: { userId: user.id, type: body.type },
+        });
+        const duplicateAddress = existingAddresses.find((address) =>
+          isSameAddressLocation(normalizedInput, {
+            street: address.street,
+            city: address.city,
+            state: address.state,
+            country: address.country,
+            zipCode: address.zipCode,
+            landmark: address.landmark || "",
+          }),
+        );
+
+        if (duplicateAddress) {
+          set.status = 409;
+          return {
+            status: "error",
+            message: "This address already exists",
+            data: duplicateAddress,
+          };
+        }
+
         // If this is being set as default, update existing defaults
         if (body.isDefault) {
           await db.address.updateMany({
@@ -47,15 +79,15 @@ export const addresses = createBaseElysia()
           data: {
             userId: user.id,
             type: body.type,
-            street: body.address,
-            city: body.city,
-            state: body.state,
-            country: body.country || "Nigeria", // Only "Nigeria"
-            zipCode: body.zipCode || "",
-            contactName: body.contactName,
-            contactPhone: body.contactPhone,
-            landmark: body.landmark,
-            deliveryInstructions: body.deliveryInstructions,
+            street: normalizedInput.street,
+            city: normalizedInput.city,
+            state: normalizedInput.state,
+            country: normalizedInput.country,
+            zipCode: normalizedInput.zipCode,
+            contactName: body.contactName ? normalizeText(body.contactName) : undefined,
+            contactPhone: body.contactPhone ? normalizeText(body.contactPhone) : undefined,
+            landmark: normalizedInput.landmark || undefined,
+            deliveryInstructions: body.deliveryInstructions ? normalizeText(body.deliveryInstructions) : undefined,
             latitude: body.latitude,
             longitude: body.longitude,
             isDefault: body.isDefault || false,
@@ -189,6 +221,37 @@ export const addresses = createBaseElysia()
           return { status: "error", message: "Address not found" };
         }
 
+        const nextAddressLocation = {
+          street: body.address ? normalizeText(body.address) : existingAddress.street,
+          city: body.city ? normalizeText(body.city) : existingAddress.city,
+          state: body.state ? normalizeText(body.state) : existingAddress.state,
+          country: body.country ? normalizeText(body.country) : existingAddress.country,
+          zipCode: body.zipCode ? normalizeText(body.zipCode) : existingAddress.zipCode,
+          landmark: body.landmark ? normalizeText(body.landmark) : existingAddress.landmark || "",
+        };
+        const siblingAddresses = await db.address.findMany({
+          where: { userId: user.id, type: existingAddress.type, id: { not: existingAddress.id } },
+        });
+        const duplicateAddress = siblingAddresses.find((address) =>
+          isSameAddressLocation(nextAddressLocation, {
+            street: address.street,
+            city: address.city,
+            state: address.state,
+            country: address.country,
+            zipCode: address.zipCode,
+            landmark: address.landmark || "",
+          }),
+        );
+
+        if (duplicateAddress) {
+          set.status = 409;
+          return {
+            status: "error",
+            message: "This address already exists",
+            data: duplicateAddress,
+          };
+        }
+
         // If this is being set as default, update existing defaults
         if (body.isDefault) {
           await db.address.updateMany({
@@ -201,15 +264,15 @@ export const addresses = createBaseElysia()
         const updatedAddress = await db.address.update({
           where: { id: params.id },
           data: {
-            ...(body.address ? { street: body.address } : {}),
-            ...(body.city ? { city: body.city } : {}),
-            ...(body.state ? { state: body.state } : {}),
-            ...(body.country ? { country: body.country } : {}),
-            ...(body.zipCode ? { zipCode: body.zipCode } : {}),
-            ...(body.contactName ? { contactName: body.contactName } : {}),
-            ...(body.contactPhone ? { contactPhone: body.contactPhone } : {}),
-            ...(body.landmark ? { landmark: body.landmark } : {}),
-            ...(body.deliveryInstructions ? { deliveryInstructions: body.deliveryInstructions } : {}),
+            ...(body.address ? { street: normalizeText(body.address) } : {}),
+            ...(body.city ? { city: normalizeText(body.city) } : {}),
+            ...(body.state ? { state: normalizeText(body.state) } : {}),
+            ...(body.country ? { country: normalizeText(body.country) } : {}),
+            ...(body.zipCode ? { zipCode: normalizeText(body.zipCode) } : {}),
+            ...(body.contactName ? { contactName: normalizeText(body.contactName) } : {}),
+            ...(body.contactPhone ? { contactPhone: normalizeText(body.contactPhone) } : {}),
+            ...(body.landmark ? { landmark: normalizeText(body.landmark) } : {}),
+            ...(body.deliveryInstructions ? { deliveryInstructions: normalizeText(body.deliveryInstructions) } : {}),
             ...(body.latitude !== undefined ? { latitude: body.latitude } : {}),
             ...(body.longitude !== undefined ? { longitude: body.longitude } : {}),
             ...(body.isDefault !== undefined ? { isDefault: body.isDefault } : {}),
@@ -320,3 +383,29 @@ export const addresses = createBaseElysia()
         },
       },
     );
+
+function normalizeText(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizeAddressPart(value: string) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isSameAddressLocation(
+  first: { street: string; city: string; state: string; country: string; zipCode: string; landmark: string },
+  second: { street: string; city: string; state: string; country: string; zipCode: string; landmark: string },
+) {
+  return (
+    normalizeAddressPart(first.street) === normalizeAddressPart(second.street) &&
+    normalizeAddressPart(first.city) === normalizeAddressPart(second.city) &&
+    normalizeAddressPart(first.state) === normalizeAddressPart(second.state) &&
+    normalizeAddressPart(first.country) === normalizeAddressPart(second.country) &&
+    normalizeAddressPart(first.zipCode) === normalizeAddressPart(second.zipCode) &&
+    normalizeAddressPart(first.landmark) === normalizeAddressPart(second.landmark)
+  );
+}

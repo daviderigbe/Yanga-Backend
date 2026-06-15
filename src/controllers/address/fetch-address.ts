@@ -52,6 +52,12 @@ export const addresses = createBaseElysia()
             state: body.state,
             country: body.country || "Nigeria", // Only "Nigeria"
             zipCode: body.zipCode || "",
+            contactName: body.contactName,
+            contactPhone: body.contactPhone,
+            landmark: body.landmark,
+            deliveryInstructions: body.deliveryInstructions,
+            latitude: body.latitude,
+            longitude: body.longitude,
             isDefault: body.isDefault || false,
           },
         });
@@ -70,8 +76,8 @@ export const addresses = createBaseElysia()
     },
     {
       body: t.Object({
-        type: t.Union([t.Literal("BILLING"), t.Literal("SHIPPING")], {
-          error: "Type must be either BILLING or SHIPPING",
+        type: t.Union([t.Literal("BILLING"), t.Literal("SHIPPING"), t.Literal("PICKUP")], {
+          error: "Type must be BILLING, SHIPPING, or PICKUP",
         }),
         address: t.String({
           minLength: 5,
@@ -94,6 +100,12 @@ export const addresses = createBaseElysia()
         zipCode: t.Optional(
           t.String({ maxLength: 10 })
         ),
+        contactName: t.Optional(t.String({ minLength: 2, maxLength: 80 })),
+        contactPhone: t.Optional(t.String({ minLength: 7, maxLength: 20 })),
+        landmark: t.Optional(t.String({ maxLength: 120 })),
+        deliveryInstructions: t.Optional(t.String({ maxLength: 250 })),
+        latitude: t.Optional(t.Number({ minimum: -90, maximum: 90 })),
+        longitude: t.Optional(t.Number({ minimum: -180, maximum: 180 })),
         isDefault: t.Optional(t.Boolean()),
       }),
       detail: {
@@ -140,7 +152,7 @@ export const addresses = createBaseElysia()
       query: t.Optional(
         t.Object({
           type: t.Optional(
-            t.Union([t.Literal("BILLING"), t.Literal("SHIPPING")]),
+            t.Union([t.Literal("BILLING"), t.Literal("SHIPPING"), t.Literal("PICKUP")]),
           ),
         }),
       ),
@@ -189,12 +201,18 @@ export const addresses = createBaseElysia()
         const updatedAddress = await db.address.update({
           where: { id: params.id },
           data: {
-            ...(body.address && { street: body.address }),
-            ...(body.city && { city: body.city }),
-            ...(body.state && { state: body.state }),
-            ...(body.country && { country: body.country }),
-            ...(body.zipCode && { zipCode: body.zipCode }),
-            ...(body.isDefault !== undefined && { isDefault: body.isDefault }),
+            ...(body.address ? { street: body.address } : {}),
+            ...(body.city ? { city: body.city } : {}),
+            ...(body.state ? { state: body.state } : {}),
+            ...(body.country ? { country: body.country } : {}),
+            ...(body.zipCode ? { zipCode: body.zipCode } : {}),
+            ...(body.contactName ? { contactName: body.contactName } : {}),
+            ...(body.contactPhone ? { contactPhone: body.contactPhone } : {}),
+            ...(body.landmark ? { landmark: body.landmark } : {}),
+            ...(body.deliveryInstructions ? { deliveryInstructions: body.deliveryInstructions } : {}),
+            ...(body.latitude !== undefined ? { latitude: body.latitude } : {}),
+            ...(body.longitude !== undefined ? { longitude: body.longitude } : {}),
+            ...(body.isDefault !== undefined ? { isDefault: body.isDefault } : {}),
           },
         });
 
@@ -226,6 +244,12 @@ export const addresses = createBaseElysia()
           }),
         ),
         zipCode: t.Optional(t.String({ maxLength: 10 })),
+        contactName: t.Optional(t.String({ minLength: 2, maxLength: 80 })),
+        contactPhone: t.Optional(t.String({ minLength: 7, maxLength: 20 })),
+        landmark: t.Optional(t.String({ maxLength: 120 })),
+        deliveryInstructions: t.Optional(t.String({ maxLength: 250 })),
+        latitude: t.Optional(t.Number({ minimum: -90, maximum: 90 })),
+        longitude: t.Optional(t.Number({ minimum: -180, maximum: 180 })),
         isDefault: t.Optional(t.Boolean()),
       }),
       detail: {

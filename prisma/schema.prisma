@@ -292,8 +292,12 @@ model Order {
   buyerId      String
   buyer        User        @relation(fields: [buyerId], references: [id], onDelete: Restrict)
   items        OrderItem[]
+  shipment     Shipment?
+  activities   OrderActivity[]
   status       OrderStatus @default(PENDING)
   isBundle     Boolean     @default(false)
+  subtotalAmount Decimal    @default(0) @db.Decimal(10, 2)
+  deliveryFee  Decimal      @default(0) @db.Decimal(10, 2)
   totalAmount  Decimal     @db.Decimal(10, 2)
   discountCode String?
   addressId    String
@@ -317,9 +321,11 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity  Int
   price     Decimal @db.Decimal(10, 2) // Price at time of purchase
+  sellerSettledAt DateTime?
 
   @@index([orderId])
   @@index([productId])
+  @@index([sellerSettledAt])
 }
 
 /// Shopping cart for users
@@ -361,10 +367,89 @@ model Address {
   state     String
   country   String
   zipCode   String
+  contactName String?
+  contactPhone String?
+  landmark String?
+  deliveryInstructions String?
+  latitude  Decimal?    @db.Decimal(10, 7)
+  longitude Decimal?    @db.Decimal(10, 7)
   orders    Order[]
   isDefault Boolean     @default(false)
 
   @@index([userId])
+  @@index([state])
+  @@index([city])
+}
+
+/// Dispatch/shipping details for an order
+model Shipment {
+  id                 String               @id @default(uuid())
+  orderId            String               @unique
+  order              Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider           DispatchProvider     @default(KWIK)
+  serviceLevel       DeliveryServiceLevel @default(STANDARD)
+  status             DeliveryStatus       @default(PENDING)
+  externalShipmentId String?
+  externalTrackingId String?
+  trackingUrl        String?
+  deliveryFee        Decimal              @default(0) @db.Decimal(10, 2)
+  currency           String               @default("NGN")
+  pickupName         String?
+  pickupPhone        String?
+  pickupAddress      String?
+  pickupCity         String?
+  pickupState        String?
+  dropoffName        String?
+  dropoffPhone       String?
+  dropoffAddress     String?
+  dropoffCity        String?
+  dropoffState       String?
+  dropoffInstructions String?
+  providerPayload    Json?
+  failureReason      String?
+  dispatchedAt       DateTime?
+  pickedUpAt         DateTime?
+  deliveredAt        DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  events             ShipmentEvent[]
+
+  @@index([provider])
+  @@index([status])
+  @@index([externalShipmentId])
+  @@index([createdAt])
+}
+
+/// Provider status updates and webhook audit trail for shipments
+model ShipmentEvent {
+  id             String         @id @default(uuid())
+  shipmentId     String
+  shipment       Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  status         DeliveryStatus
+  providerStatus String?
+  message        String?
+  providerPayload Json?
+  createdAt      DateTime       @default(now())
+
+  @@index([shipmentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Immutable timeline for order/payment/dispatch events
+model OrderActivity {
+  id        String            @id @default(uuid())
+  orderId   String
+  order     Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      OrderActivityType
+  message   String
+  metadata  Json?
+  createdAt DateTime          @default(now())
+
+  @@index([orderId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 /// Saved payment methods
@@ -501,9 +586,48 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum DispatchProvider {
+  KWIK
+  MANUAL
+}
+
+enum DeliveryServiceLevel {
+  STANDARD
+  EXPRESS
+  SCHEDULED
+}
+
+enum DeliveryStatus {
+  PENDING
+  QUOTED
+  READY_FOR_PICKUP
+  DISPATCH_REQUESTED
+  DISPATCHED
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  CANCELLED
+  FAILED
+  RETURNED
+}
+
+enum OrderActivityType {
+  CREATED
+  PAYMENT_INITIALIZED
+  PAYMENT_VERIFIED
+  STOCK_RESERVED
+  DISPATCH_QUOTED
+  DISPATCH_CREATED
+  DISPATCH_STATUS_UPDATED
+  ORDER_STATUS_UPDATED
+  CANCELLED
+  FAILED
+}
+
 enum AddressType {
   BILLING
   SHIPPING
+  PICKUP
 }
 
 enum NotificationType {

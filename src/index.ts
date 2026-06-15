@@ -20,6 +20,7 @@ import { paymentRoutes } from "./controllers/payment";
 import { salesRoutes } from "./controllers/sales";
 import { purchaseRoutes } from "./controllers/purchase";
 import { uploadRoutes } from "./controllers/upload/upload";
+import { dispatchRoutes } from "./controllers/dispatch";
 
 const app = baseElysia()
   .use(cors({}))
@@ -50,6 +51,7 @@ const app = baseElysia()
       .use(wsRoutes)
       .use(searchRoutes)
       .use(paymentRoutes)
+      .use(dispatchRoutes)
       .use(salesRoutes)
       .use(purchaseRoutes)
       .use(uploadRoutes),

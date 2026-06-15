@@ -10,6 +10,10 @@ import {
   getSupportedBanks, withdrawToBank
 } from "../../services/paystack";
 import {db} from "../../lib/db";
+import { validateSessionToken } from "../../lib/auth";
+import { createDispatchShipment, getDispatchQuote, resolvePickupAddressForOrderItems } from "../../services/dispatch";
+import { recordOrderActivity } from "../../services/order-activity";
+import { config } from "../../utils/config";
 
 export const paystackRoutes = createBaseElysia()
 export const walletRoutes = createBaseElysia()
@@ -17,9 +21,29 @@ export const orderRoutes = createBaseElysia()
     // Create order and initialize payment
     .post(
         "/orders/create",
-        async ({ body, set }) => {
+        async ({ body, set, cookie: { session } }) => {
           try {
-            const { buyerId, items, addressId, isBundle, callbackUrl: customCallbackUrl } = body;
+            const { buyerId: requestedBuyerId, items, addressId, isBundle, callbackUrl: customCallbackUrl } = body;
+            const authenticatedUser = await resolveCheckoutUser(session.value);
+            const buyerId = authenticatedUser?.id || requestedBuyerId;
+
+            if (!buyerId) {
+              set.status = 400;
+              return { status: "error", message: "buyerId or valid session is required" };
+            }
+
+            if (authenticatedUser && requestedBuyerId && requestedBuyerId !== authenticatedUser.id) {
+              set.status = 403;
+              return { status: "error", message: "buyerId does not match active session" };
+            }
+
+            if (!customCallbackUrl) {
+              set.status = 400;
+              return {
+                status: "error",
+                message: "callbackUrl is required"
+              };
+            }
 
             // Validate user exists
             const user = await db.user.findUnique({
@@ -39,13 +63,24 @@ export const orderRoutes = createBaseElysia()
               return { status: "error", message: "Invalid address" };
             }
 
-            // Validate products and calculate total
-            let totalAmount = 0;
+            const mergedItems = mergeOrderItems(items);
+
+            // Validate products and calculate subtotal
+            let subtotalAmount = 0;
             const validatedItems = [];
 
-            for (const item of items) {
+            for (const item of mergedItems) {
               const product = await db.product.findUnique({
                 where: { id: item.productId },
+                include: {
+                  seller: {
+                    include: {
+                      addresses: {
+                        orderBy: [{ isDefault: "desc" }],
+                      },
+                    },
+                  },
+                },
               });
 
               if (!product) {
@@ -56,11 +91,27 @@ export const orderRoutes = createBaseElysia()
                 };
               }
 
-              if (!product.isAvailable) {
+              if (product.sellerId === buyerId) {
+                set.status = 400;
+                return {
+                  status: "error",
+                  message: `You cannot buy your own product "${product.title}"`
+                };
+              }
+
+              if (!product.isAvailable || product.status !== "ACTIVE") {
                 set.status = 400;
                 return {
                   status: "error",
                   message: `Product "${product.title}" is no longer available`
+                };
+              }
+
+              if (product.quantity < item.quantity) {
+                set.status = 400;
+                return {
+                  status: "error",
+                  message: `Only ${product.quantity} unit(s) of "${product.title}" are available`
                 };
               }
 
@@ -70,13 +121,26 @@ export const orderRoutes = createBaseElysia()
                 price = price * (1 - product.discountPercent / 100);
               }
 
-              totalAmount += price * item.quantity;
+              subtotalAmount += price * item.quantity;
               validatedItems.push({
                 productId: product.id,
                 quantity: item.quantity,
                 price: price,
+                product,
               });
             }
+
+            const pickupAddress = resolvePickupAddressForOrderItems(
+              validatedItems.map((item) => ({ product: item.product })),
+            );
+            const quote = await getDispatchQuote({
+              address,
+              pickupAddress,
+              itemCount: mergedItems.reduce((sum, item) => sum + item.quantity, 0),
+              serviceLevel: body.deliveryServiceLevel,
+            });
+            const deliveryFee = quote.amount;
+            const totalAmount = subtotalAmount + deliveryFee;
 
             // Create the order
             const order = await db.order.create({
@@ -84,10 +148,40 @@ export const orderRoutes = createBaseElysia()
                 buyerId,
                 addressId,
                 isBundle,
+                subtotalAmount,
+                deliveryFee,
                 totalAmount,
                 status: "PENDING",
                 items: {
-                  create: validatedItems,
+                  create: validatedItems.map(({ product, ...item }) => item),
+                },
+                shipment: {
+                  create: {
+                    provider: quote.provider,
+                    serviceLevel: quote.serviceLevel,
+                    status: "QUOTED",
+                    deliveryFee,
+                    currency: quote.currency,
+                    pickupName: pickupAddress.contactName || config.DISPATCH_PICKUP_NAME,
+                    pickupPhone: pickupAddress.contactPhone || config.DISPATCH_PICKUP_PHONE,
+                    pickupAddress: [pickupAddress.street, pickupAddress.landmark, pickupAddress.city, pickupAddress.state, pickupAddress.country].filter(Boolean).join(", "),
+                    pickupCity: pickupAddress.city,
+                    pickupState: pickupAddress.state,
+                    dropoffName: address.contactName || user.name,
+                    dropoffPhone: address.contactPhone,
+                    dropoffAddress: [address.street, address.landmark, address.city, address.state, address.country].filter(Boolean).join(", "),
+                    dropoffCity: address.city,
+                    dropoffState: address.state,
+                    dropoffInstructions: address.deliveryInstructions,
+                    providerPayload: "providerResponse" in quote ? quote.providerResponse as any : undefined,
+                    events: {
+                      create: {
+                        status: "QUOTED",
+                        message: quote.message || "Delivery quote attached to order",
+                        providerPayload: "providerResponse" in quote ? quote.providerResponse as any : undefined,
+                      },
+                    },
+                  },
                 },
               },
               include: {
@@ -96,17 +190,22 @@ export const orderRoutes = createBaseElysia()
                     product: true,
                   },
                 },
+                shipment: true,
               },
             });
 
-            // Initialize payment with orderId in callback URL
-            if (!customCallbackUrl) {
-              set.status = 400;
-              return {
-                status: "error",
-                message: "callbackUrl is required"
-              };
-            }
+            await recordOrderActivity({
+              orderId: order.id,
+              type: "CREATED",
+              message: "Order created with delivery quote",
+              metadata: {
+                subtotalAmount,
+                deliveryFee,
+                totalAmount,
+                dispatchProvider: quote.provider,
+                dispatchLive: quote.isLive,
+              },
+            });
 
             const separator = customCallbackUrl.includes("?") ? "&" : "?";
             const finalCallbackUrl = `${customCallbackUrl}${separator}orderId=${order.id}`;
@@ -125,12 +224,25 @@ export const orderRoutes = createBaseElysia()
               },
             });
 
+            await recordOrderActivity({
+              orderId: order.id,
+              type: "PAYMENT_INITIALIZED",
+              message: "Paystack payment initialized",
+              metadata: {
+                reference: payment.data.reference,
+                amount: totalAmount,
+              },
+            });
+
             return {
               status: "success",
               order: {
                 id: order.id,
+                subtotalAmount: Number(subtotalAmount),
+                deliveryFee: Number(deliveryFee),
                 totalAmount: Number(totalAmount),
                 items: order.items,
+                shipment: order.shipment,
               },
               payment: {
                 authorizationUrl: payment.data.authorization_url,
@@ -149,7 +261,7 @@ export const orderRoutes = createBaseElysia()
         },
         {
           body: t.Object({
-            buyerId: t.String(),
+            buyerId: t.Optional(t.String()),
             items: t.Array(
                 t.Object({
                   productId: t.String(),
@@ -158,12 +270,15 @@ export const orderRoutes = createBaseElysia()
             ),
             addressId: t.String(),
             isBundle: t.Optional(t.Boolean()),
-            callbackUrl: t.Optional(t.String()),
+            callbackUrl: t.String(),
+            deliveryServiceLevel: t.Optional(
+              t.Union([t.Literal("STANDARD"), t.Literal("EXPRESS"), t.Literal("SCHEDULED")]),
+            ),
           }),
           detail: {
             tags: ["Orders"],
             summary: "Create order and initialize payment",
-            description: "Creates an order and returns Paystack payment URL",
+            description: "Creates an order, attaches a Lagos delivery quote, and returns Paystack payment URL",
           },
         }
     )
@@ -182,6 +297,7 @@ export const orderRoutes = createBaseElysia()
                 items: {
                   include: { product: true },
                 },
+                shipment: true,
               },
             });
 
@@ -224,7 +340,7 @@ export const orderRoutes = createBaseElysia()
 
             // Check if payment amount matches order total
             const paidAmount = verification.data.amount / 100; // Convert from kobo
-            if (paidAmount !== Number(order.totalAmount)) {
+            if (Math.abs(paidAmount - Number(order.totalAmount)) > 0.01) {
               set.status = 400;
               return {
                 status: "error",
@@ -253,19 +369,17 @@ export const orderRoutes = createBaseElysia()
                 },
               });
 
-              // Credit merchant wallets
-              for (const item of order.items) {
-                const merchantId = item.product.sellerId;
-                const amountInKobo = nairaToKobo(
-                    Number(item.price) * Number(item.quantity)
-                );
-
-                await tx.wallet.upsert({
-                  where: { userId: merchantId },
-                  update: { balance: { increment: amountInKobo } },
-                  create: { userId: merchantId, balance: amountInKobo },
-                });
-              }
+              await tx.orderActivity.create({
+                data: {
+                  orderId,
+                  type: "PAYMENT_VERIFIED",
+                  message: "Paystack payment verified; seller settlement pending delivery",
+                  metadata: {
+                    reference,
+                    paidAmount,
+                  },
+                },
+              });
 
               // Update product stock and availability
               for (const item of order.items) {
@@ -293,14 +407,31 @@ export const orderRoutes = createBaseElysia()
                   },
                 });
               }
+
+              await tx.orderActivity.create({
+                data: {
+                  orderId,
+                  type: "STOCK_RESERVED",
+                  message: "Product stock reduced after payment verification",
+                  metadata: {
+                    items: order.items.map((item) => ({
+                      productId: item.productId,
+                      quantity: item.quantity,
+                    })),
+                  },
+                },
+              });
             });
+
+            const shipment = await createDispatchShipment({ orderId });
 
             return {
               status: "success",
               message: "Payment verified and order completed",
               order: {
                 id: order.id,
-                status: "PROCESSING",
+                status: shipment.status === "DISPATCH_REQUESTED" || shipment.status === "DISPATCHED" ? "SHIPPED" : "PROCESSING",
+                shipment,
               },
             };
           } catch (err: any) {
@@ -350,6 +481,16 @@ export const orderRoutes = createBaseElysia()
                   },
                 },
                 address: true,
+                shipment: {
+                  include: {
+                    events: {
+                      orderBy: { createdAt: "desc" },
+                    },
+                  },
+                },
+                activities: {
+                  orderBy: { createdAt: "desc" },
+                },
                 buyer: {
                   select: {
                     id: true,
@@ -421,31 +562,6 @@ export const orderRoutes = createBaseElysia()
           },
         }
     )
-
-    // Withdraw from wallet
-  .post(
-    "/wallet/withdraw",
-    async ({ body, set }) => {
-      try {
-        const { amount, userId } = body;
-        await withdrawFromWallet(userId, amount);
-        return { status: "success", message: "Withdrawal initiated" };
-      } catch (err: any) {
-        set.status = 400;
-        return { status: "error", message: err.message };
-      }
-    },
-    {
-      body: t.Object({
-        userId: t.String(), // Add userId to the request body
-        amount: t.Number({ minimum: 100 }), // Minimum withdrawal amount in kobo
-      }),
-      detail: {
-        tags: ["Wallet"],
-        summary: "Withdraw from merchant wallet",
-      },
-    }
-  )
 
     // Updated withdraw route that accepts bank details dynamically
     .post(
@@ -570,3 +686,26 @@ export const orderRoutes = createBaseElysia()
           },
         }
     );
+
+async function resolveCheckoutUser(token?: string) {
+  if (!token) {
+    return null;
+  }
+
+  const { session, user } = await validateSessionToken(token);
+  return session && user ? user : null;
+}
+
+function mergeOrderItems(items: { productId: string; quantity: number }[]) {
+  const merged = new Map<string, { productId: string; quantity: number }>();
+
+  for (const item of items) {
+    const current = merged.get(item.productId);
+    merged.set(item.productId, {
+      productId: item.productId,
+      quantity: (current?.quantity || 0) + item.quantity,
+    });
+  }
+
+  return Array.from(merged.values());
+}

@@ -6,6 +6,7 @@
     "dev": "bun run --watch src/index.ts",
     "build": "bun build --target=bun ./src/index.ts --outdir ./build && cp package.json build/",
     "start": "cd build && bun run index.js",
+    "seed": "bun seed.ts",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy"
   },

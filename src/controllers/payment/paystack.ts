@@ -249,23 +249,31 @@ export const orderRoutes = createBaseElysia()
 
             return {
               status: "success",
+              authorizationUrl: payment.data.authorization_url,
+              authorization_url: payment.data.authorization_url,
+              paymentUrl: payment.data.authorization_url,
+              payment_url: payment.data.authorization_url,
+              reference: payment.data.reference,
+              paymentReference: payment.data.reference,
               order: {
                 id: order.id,
                 subtotalAmount: Number(subtotalAmount),
-                providerDeliveryFee: Number(providerDeliveryFee),
-                deliveryMarkup: Number(fees.deliveryMarkup),
                 deliveryFee: Number(fees.deliveryFee),
                 serviceFee: Number(fees.serviceFee),
-                commissionAmount: Number(fees.commissionAmount),
-                sellerPayoutAmount: Number(fees.sellerPayoutAmount),
-                platformRevenueAmount: Number(fees.platformRevenueAmount),
                 totalAmount: Number(totalAmount),
                 items: order.items,
-                shipment: order.shipment,
+                shipment: sanitizeShipment(order.shipment),
               },
               payment: {
                 authorizationUrl: payment.data.authorization_url,
                 accessCode: payment.data.access_code,
+                reference: payment.data.reference,
+              },
+              paystack: {
+                authorizationUrl: payment.data.authorization_url,
+                authorization_url: payment.data.authorization_url,
+                accessCode: payment.data.access_code,
+                access_code: payment.data.access_code,
                 reference: payment.data.reference,
               },
             };
@@ -427,6 +435,37 @@ export const orderRoutes = createBaseElysia()
                 });
               }
 
+              const buyerCart = await tx.cart.findUnique({
+                where: { userId: order.buyerId },
+                select: { id: true },
+              });
+
+              if (buyerCart) {
+                for (const item of order.items) {
+                  const cartItem = await tx.cartItem.findUnique({
+                    where: {
+                      cartId_productId: {
+                        cartId: buyerCart.id,
+                        productId: item.productId,
+                      },
+                    },
+                  });
+
+                  if (!cartItem) {
+                    continue;
+                  }
+
+                  if (cartItem.quantity <= item.quantity) {
+                    await tx.cartItem.delete({ where: { id: cartItem.id } });
+                  } else {
+                    await tx.cartItem.update({
+                      where: { id: cartItem.id },
+                      data: { quantity: cartItem.quantity - item.quantity },
+                    });
+                  }
+                }
+              }
+
               await tx.orderActivity.create({
                 data: {
                   orderId,
@@ -437,6 +476,7 @@ export const orderRoutes = createBaseElysia()
                       productId: item.productId,
                       quantity: item.quantity,
                     })),
+                    cartUpdated: Boolean(buyerCart),
                   },
                 },
               });
@@ -525,7 +565,7 @@ export const orderRoutes = createBaseElysia()
               return { status: "error", message: "Order not found" };
             }
 
-            return { status: "success", order };
+            return { status: "success", order: serializePublicOrder(order) };
           } catch (err: any) {
             set.status = 500;
             return { status: "error", message: "Failed to fetch order" };
@@ -751,4 +791,49 @@ function calculateMarketplaceFees(subtotalAmount: number, providerDeliveryFee: n
 
 function roundMoney(amount: number) {
   return Math.round(amount * 100) / 100;
+}
+
+function serializePublicOrder(order: any) {
+  const {
+    providerDeliveryFee,
+    deliveryMarkup,
+    commissionAmount,
+    sellerPayoutAmount,
+    platformRevenueAmount,
+    shipment,
+    activities,
+    ...publicOrder
+  } = order;
+
+  return {
+    ...publicOrder,
+    subtotalAmount: Number(order.subtotalAmount),
+    deliveryFee: Number(order.deliveryFee),
+    serviceFee: Number(order.serviceFee),
+    totalAmount: Number(order.totalAmount),
+    shipment: sanitizeShipment(shipment),
+    activities: activities?.map((activity: any) => ({
+      id: activity.id,
+      type: activity.type,
+      message: activity.message,
+      createdAt: activity.createdAt,
+    })),
+  };
+}
+
+function sanitizeShipment(shipment: any) {
+  if (!shipment) {
+    return shipment;
+  }
+
+  const { providerPayload, events, ...publicShipment } = shipment;
+
+  return {
+    ...publicShipment,
+    deliveryFee: Number(shipment.deliveryFee),
+    events: events?.map((event: any) => {
+      const { providerPayload, ...publicEvent } = event;
+      return publicEvent;
+    }),
+  };
 }

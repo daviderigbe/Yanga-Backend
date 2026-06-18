@@ -622,6 +622,90 @@ export const orderRoutes = createBaseElysia()
         }
     )
 
+    // Optional withdrawal history for wallet screens
+    .get(
+        "/wallet/:userId/withdrawals",
+        async ({ params, query, set }) => {
+          try {
+            const page = Math.max(Number(query.page || 1), 1);
+            const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+            const skip = (page - 1) * limit;
+            const where = {
+              userId: params.userId,
+              ...(query.status ? { status: query.status } : {}),
+            };
+
+            const [withdrawals, total] = await db.$transaction([
+              db.withdrawal.findMany({
+                where,
+                orderBy: { createdAt: "desc" },
+                skip,
+                take: limit,
+              }),
+              db.withdrawal.count({ where }),
+            ]);
+
+            return {
+              status: "success",
+              data: {
+                items: withdrawals.map((withdrawal) => ({
+                  id: withdrawal.id,
+                  amount: koboToNaira(withdrawal.amount),
+                  amountKobo: withdrawal.amount,
+                  currency: withdrawal.currency,
+                  status: withdrawal.status,
+                  bankCode: withdrawal.bankCode,
+                  bankName: withdrawal.bankName,
+                  accountNumber: withdrawal.accountNumber,
+                  accountName: withdrawal.accountName,
+                  transferCode: withdrawal.transferCode,
+                  reference: withdrawal.reference,
+                  provider: withdrawal.provider,
+                  failureReason: withdrawal.failureReason,
+                  createdAt: withdrawal.createdAt,
+                  updatedAt: withdrawal.updatedAt,
+                })),
+                pagination: {
+                  page,
+                  limit,
+                  total,
+                  totalPages: Math.ceil(total / limit),
+                },
+              },
+            };
+          } catch (err: any) {
+            set.status = 500;
+            return {
+              status: "error",
+              message: err.message || "Unable to fetch withdrawal history",
+            };
+          }
+        },
+        {
+          params: t.Object({
+            userId: t.String(),
+          }),
+          query: t.Object({
+            page: t.Optional(t.Numeric({ minimum: 1 })),
+            limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
+            status: t.Optional(
+              t.Union([
+                t.Literal("PENDING"),
+                t.Literal("PROCESSING"),
+                t.Literal("SUCCESS"),
+                t.Literal("FAILED"),
+                t.Literal("REVERSED"),
+              ]),
+            ),
+          }),
+          detail: {
+            tags: ["Wallet"],
+            summary: "Get optional wallet withdrawal history",
+            description: "Retrieve paginated Paystack withdrawal history for a user. Amount is returned in Naira and kobo.",
+          },
+        }
+    )
+
     // Updated withdraw route that accepts bank details dynamically
     .post(
         "/wallet/withdraw",
@@ -674,6 +758,7 @@ export const orderRoutes = createBaseElysia()
             bankDetails: t.Object({
               accountNumber: t.String(),
               bankCode: t.String(),
+              bankName: t.Optional(t.String()),
               accountName: t.Optional(t.String()) // Optional, we'll validate with Paystack
             })
           }),

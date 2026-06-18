@@ -20,7 +20,7 @@ export const emailVerificationRoutes = createBaseElysia({
     "/send-code",
     async ({ body, log, set }) => {
       try {
-        const { email } = body;
+        const email = body.email.toLowerCase().trim();
 
         // Check if user exists
         const user = await db.user.findUnique({
@@ -108,7 +108,8 @@ export const emailVerificationRoutes = createBaseElysia({
     "/verify",
     async ({ body, log, set }) => {
       try {
-        const { email, code } = body;
+        const email = body.email.toLowerCase().trim();
+        const code = body.code.trim().toUpperCase();
         const redisKey = `email_verification:${email}`;
 
         // Get verification data from Redis
@@ -178,7 +179,7 @@ export const emailVerificationRoutes = createBaseElysia({
     "/resend-code",
     async ({ body, log, set }) => {
       try {
-        const { email } = body;
+        const email = body.email.toLowerCase().trim();
 
         // Check if user exists and is not verified
         const user = await db.user.findUnique({

@@ -1,7 +1,7 @@
 import axios from "axios";
 import crypto from "crypto";
 import { db } from "../lib/db";
-import { Prisma } from "@prisma/client";
+import { Prisma, WithdrawalStatus } from "@prisma/client";
 import { config } from "../utils/config";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
@@ -86,11 +86,41 @@ export async function withdrawFromWallet(userId: string, amountInNaira: number) 
         throw new Error(error.message || 'Transfer validation failed');
     }
 
-    // 3. Only deduct from wallet AFTER successful transfer initiation
+    const user = await db.user.findUnique({
+        where: { id: userId },
+        select: {
+            bankCode: true,
+            bankName: true,
+            bankAccountName: true,
+            bankAccountNumber: true,
+            recipientCode: true,
+        },
+    });
+    const transferData = transferResult.data || {};
+
+    // 3. Only deduct from wallet AFTER successful transfer initiation, and keep a withdrawal record
     try {
-        await db.wallet.update({
-            where: { userId },
-            data: { balance: { decrement: amountInKobo } },
+        await db.$transaction(async (tx) => {
+            await tx.wallet.update({
+                where: { userId },
+                data: { balance: { decrement: amountInKobo } },
+            });
+
+            await tx.withdrawal.create({
+                data: {
+                    userId,
+                    amount: amountInKobo,
+                    status: mapPaystackTransferStatus(transferData.status),
+                    bankCode: user?.bankCode,
+                    bankName: user?.bankName,
+                    accountNumber: maskAccountNumber(user?.bankAccountNumber),
+                    accountName: user?.bankAccountName,
+                    recipientCode: user?.recipientCode || transferData.recipient || transferData.recipient_code,
+                    transferCode: transferData.transfer_code,
+                    reference: transferData.reference,
+                    providerResponse: transferResult as Prisma.InputJsonValue,
+                },
+            });
         });
     } catch (error: any) {
         // If deduction fails after successful transfer, this is a critical error
@@ -292,6 +322,7 @@ export async function withdrawToBank(
         accountNumber: string;
         bankCode: string;
         accountName?: string;
+        bankName?: string;
     }
 ) {
     const amountInKobo = nairaToKobo(amountInNaira);
@@ -311,11 +342,31 @@ export async function withdrawToBank(
         throw new Error(error.message || 'Transfer validation failed');
     }
 
-    // 3. Deduct from wallet only after successful transfer initiation
+    const transferData = transferResult.data || {};
+
+    // 3. Deduct from wallet only after successful transfer initiation, and keep a withdrawal record
     try {
-        await db.wallet.update({
-            where: { userId },
-            data: { balance: { decrement: amountInKobo } },
+        await db.$transaction(async (tx) => {
+            await tx.wallet.update({
+                where: { userId },
+                data: { balance: { decrement: amountInKobo } },
+            });
+
+            await tx.withdrawal.create({
+                data: {
+                    userId,
+                    amount: amountInKobo,
+                    status: mapPaystackTransferStatus(transferData.status),
+                    bankCode: bankDetails.bankCode,
+                    bankName: bankDetails.bankName,
+                    accountNumber: maskAccountNumber(bankDetails.accountNumber),
+                    accountName: bankDetails.accountName,
+                    recipientCode: transferData.recipient || transferData.recipient_code,
+                    transferCode: transferData.transfer_code,
+                    reference: transferData.reference,
+                    providerResponse: transferResult as Prisma.InputJsonValue,
+                },
+            });
         });
     } catch (error: any) {
         console.error('CRITICAL: Transfer initiated but wallet deduction failed', {
@@ -338,6 +389,7 @@ export async function initiateTransferToBank(
         accountNumber: string;
         bankCode: string;
         accountName?: string;
+        bankName?: string;
     }
 ) {
     try {
@@ -468,4 +520,26 @@ export function nairaToKobo(naira: number): number {
 
 export function koboToNaira(kobo: number): number {
   return kobo / 100;
+}
+
+function mapPaystackTransferStatus(status?: string | null): WithdrawalStatus {
+    switch ((status || "").toLowerCase()) {
+        case "success":
+            return WithdrawalStatus.SUCCESS;
+        case "failed":
+            return WithdrawalStatus.FAILED;
+        case "reversed":
+            return WithdrawalStatus.REVERSED;
+        case "pending":
+        case "otp":
+        case "queued":
+            return WithdrawalStatus.PROCESSING;
+        default:
+            return WithdrawalStatus.PROCESSING;
+    }
+}
+
+function maskAccountNumber(accountNumber?: string | null): string | undefined {
+    if (!accountNumber) return undefined;
+    return `****${accountNumber.slice(-4)}`;
 }

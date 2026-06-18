@@ -74,6 +74,7 @@ model User {
 
   // Wallet
   wallet Wallet?
+  withdrawals Withdrawal[]
 
   @@index([email])
   @@index([userName])
@@ -561,6 +562,31 @@ model Wallet {
   user      User     @relation(fields: [userId], references: [id])
 }
 
+model Withdrawal {
+  id               String           @id @default(uuid())
+  userId           String
+  amount           Int
+  currency         String           @default("NGN")
+  status           WithdrawalStatus @default(PENDING)
+  bankCode         String?
+  bankName         String?
+  accountNumber    String?
+  accountName      String?
+  recipientCode    String?
+  transferCode     String?
+  reference        String?          @unique
+  provider         String           @default("PAYSTACK")
+  providerResponse Json?
+  failureReason    String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 enum ProductStatus {
   DRAFT
   ACTIVE
@@ -628,6 +654,14 @@ enum OrderActivityType {
   ORDER_STATUS_UPDATED
   CANCELLED
   FAILED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REVERSED
 }
 
 enum AddressType {

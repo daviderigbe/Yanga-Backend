@@ -37,6 +37,14 @@ export const signup = createBaseElysia().post(
     const username = body.username.toLowerCase().trim();
 
     try {
+      if (body.password !== body.confirmPassword) {
+        set.status = 400;
+        return {
+          status: "error",
+          message: "Passwords do not match.",
+        };
+      }
+
       // Password strength check
       const passwordErrors = validatePassword(body.password);
       if (passwordErrors.length > 0) {
@@ -44,7 +52,7 @@ export const signup = createBaseElysia().post(
         return {
           status: "error",
           message: passwordErrors.join(" "),
-        } as ApiResponse<null>;
+        };
       }
 
       // Uniqueness checks
@@ -58,7 +66,7 @@ export const signup = createBaseElysia().post(
         return {
           status: "error",
           message: "User with this email already exists.",
-        } as ApiResponse<null>;
+        };
       }
 
       if (usernameExists) {
@@ -66,7 +74,7 @@ export const signup = createBaseElysia().post(
         return {
           status: "error",
           message: "User with this username already exists.",
-        } as ApiResponse<null>;
+        };
       }
 
       // Hash password
@@ -92,8 +100,8 @@ export const signup = createBaseElysia().post(
       // Generate verification code
       const code = randomBytes(3).toString("hex").toUpperCase();
 
-      redisClient
-        .set(
+      try {
+        await redisClient.set(
           `email_verification:${email}`,
           JSON.stringify({
             code,
@@ -101,41 +109,49 @@ export const signup = createBaseElysia().post(
             email: user.email,
           }),
           { EX: 15 * 60 },
-        )
-        .catch(err => {
-          log.error("[Redis Set Failed]:", err);
+        );
+
+        await sendEmail({
+          to: email,
+          subject: "Verify your email",
+          body: `Your verification code is ${code}. It expires in 15 minutes.`,
         });
+      } catch (err) {
+        log.error("[Verification Email Setup Failed]:", err);
+        await db.user.delete({ where: { id: user.id } }).catch(deleteErr => {
+          log.error("[Signup Rollback Failed]:", deleteErr);
+        });
+        set.status = 502;
+        return {
+          status: "error",
+          message:
+            "Account could not be created because the verification email could not be sent. Please try again.",
+        };
+      }
 
       set.status = 201;
-
-      // Fire-and-forget email
-      sendEmail({
-        to: email,
-        subject: "Verify your email",
-        body: `Your verification code is ${code}. It expires in 15 minutes.`,
-      }).catch(err => {
-        log.error("[Email Send Failed]:", err);
-      });
+      const responseUser = {
+        ...user,
+        name: user.name || "",
+        userName: user.userName || "",
+      };
 
       return {
         status: "success",
         message:
           "Account created successfully. Please check your email to verify your account.",
         data: {
-          user,
+          user: responseUser,
           requiresEmailVerification: true,
         },
-      } as ApiResponse<{
-        user: typeof user;
-        requiresEmailVerification: boolean;
-      }>;
+      };
     } catch (err) {
       log.error("[Signup Error]:", err);
       set.status = 500;
       return {
         status: "error",
         message: "Something went wrong while creating your account.",
-      } as ApiResponse<null>;
+      };
     }
   },
   {
@@ -143,6 +159,7 @@ export const signup = createBaseElysia().post(
       name: t.String({ minLength: 3, maxLength: 32 }),
       email: t.String({ format: "email" }),
       password: t.String({ minLength: 8, maxLength: 64 }),
+      confirmPassword: t.String({ minLength: 8, maxLength: 64 }),
       username: t.String({ minLength: 3, maxLength: 32 }),
     }),
     response: t.Object({
@@ -165,7 +182,7 @@ export const signup = createBaseElysia().post(
       tags: ["Auth"],
       summary: "Create new user account with email verification",
       description:
-        "Register a new user with email, username, password and name. Sends verification email automatically.",
+        "Register a new user with email, username, password, confirmPassword and name. Sends verification email before returning success.",
     },
   },
 );

@@ -7,6 +7,7 @@ import {
   createDispatchShipment,
   getDispatchQuote,
   mapProviderStatus,
+  settleSellerWalletsForDeliveredOrder,
   syncDispatchShipmentStatus,
   updateShipmentStatus,
 } from "../../services/dispatch";
@@ -150,6 +151,49 @@ export const dispatchRoutes = createBaseElysia({
         tags: ["Dispatch"],
         summary: "Sync Kwik shipment status",
         description: "Fetches the current Kwik delivery task status and updates the order shipment.",
+      },
+    },
+  )
+  .post(
+    "/orders/:orderId/settle",
+    async ({ params, set, cookie: { session } }) => {
+      const user = await getAuthenticatedUser(session.value);
+
+      if (!user) {
+        set.status = "Unauthorized";
+        return { status: "error", message: "Invalid session" };
+      }
+
+      const allowed = await canAccessOrder(params.orderId, user.id);
+      if (!allowed) {
+        set.status = 404;
+        return { status: "error", message: "Order not found" };
+      }
+
+      const order = await db.order.findUnique({
+        where: { id: params.orderId },
+        select: { status: true },
+      });
+
+      if (order?.status !== "DELIVERED") {
+        set.status = 400;
+        return { status: "error", message: "Order must be delivered before seller settlement" };
+      }
+
+      try {
+        await settleSellerWalletsForDeliveredOrder(params.orderId);
+        return { status: "success", message: "Seller wallet settlement completed" };
+      } catch (error: any) {
+        set.status = 400;
+        return { status: "error", message: error.message };
+      }
+    },
+    {
+      params: t.Object({ orderId: t.String() }),
+      detail: {
+        tags: ["Dispatch"],
+        summary: "Settle delivered order seller wallet",
+        description: "Reconciles seller wallet payout for an already delivered order. Safe to retry; already settled items are skipped.",
       },
     },
   )

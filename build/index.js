@@ -73078,13 +73078,10 @@ var require_dist_cjs22 = __commonJS((exports) => {
   tslib_1.__exportStar(require_protocols2(), exports);
 });
 
-// node_modules/@smithy/is-array-buffer/dist-es/index.js
-var isArrayBuffer2 = (arg) => typeof ArrayBuffer === "function" && arg instanceof ArrayBuffer || Object.prototype.toString.call(arg) === "[object ArrayBuffer]";
-
 // node_modules/@smithy/util-buffer-from/dist-es/index.js
 import { Buffer as Buffer2 } from "buffer";
-var fromArrayBuffer = (input, offset = 0, length = input.byteLength - offset) => {
-  if (!isArrayBuffer2(input)) {
+var import_is_array_buffer, fromArrayBuffer = (input, offset = 0, length = input.byteLength - offset) => {
+  if (!import_is_array_buffer.isArrayBuffer(input)) {
     throw new TypeError(`The "input" argument must be ArrayBuffer. Received type ${typeof input} (${input})`);
   }
   return Buffer2.from(input, offset, length);
@@ -73094,7 +73091,9 @@ var fromArrayBuffer = (input, offset = 0, length = input.byteLength - offset) =>
   }
   return encoding ? Buffer2.from(input, encoding) : Buffer2.from(input);
 };
-var init_dist_es2 = () => {};
+var init_dist_es2 = __esm(() => {
+  import_is_array_buffer = __toESM(require_dist_cjs5(), 1);
+});
 
 // node_modules/@smithy/util-base64/dist-es/fromBase64.js
 var BASE64_REGEX, fromBase642 = (input) => {
@@ -74152,45 +74151,8 @@ var init_dist_es8 = __esm(() => {
   init_stream_collector2();
 });
 
-// node_modules/@smithy/util-hex-encoding/dist-es/index.js
-function fromHex(encoded) {
-  if (encoded.length % 2 !== 0) {
-    throw new Error("Hex encoded strings must have an even number length");
-  }
-  const out = new Uint8Array(encoded.length / 2);
-  for (let i = 0;i < encoded.length; i += 2) {
-    const encodedByte = encoded.slice(i, i + 2).toLowerCase();
-    if (encodedByte in HEX_TO_SHORT) {
-      out[i / 2] = HEX_TO_SHORT[encodedByte];
-    } else {
-      throw new Error(`Cannot decode unrecognized sequence ${encodedByte} as hexadecimal`);
-    }
-  }
-  return out;
-}
-function toHex(bytes) {
-  let out = "";
-  for (let i = 0;i < bytes.byteLength; i++) {
-    out += SHORT_TO_HEX[bytes[i]];
-  }
-  return out;
-}
-var SHORT_TO_HEX, HEX_TO_SHORT;
-var init_dist_es9 = __esm(() => {
-  SHORT_TO_HEX = {};
-  HEX_TO_SHORT = {};
-  for (let i = 0;i < 256; i++) {
-    let encodedByte = i.toString(16).toLowerCase();
-    if (encodedByte.length === 1) {
-      encodedByte = `0${encodedByte}`;
-    }
-    SHORT_TO_HEX[i] = encodedByte;
-    HEX_TO_SHORT[encodedByte] = i;
-  }
-});
-
 // node_modules/@smithy/util-stream/dist-es/sdk-stream-mixin.browser.js
-var ERR_MSG_STREAM_HAS_BEEN_TRANSFORMED = "The stream has already been transformed.", sdkStreamMixin2 = (stream4) => {
+var import_util_hex_encoding, ERR_MSG_STREAM_HAS_BEEN_TRANSFORMED = "The stream has already been transformed.", sdkStreamMixin2 = (stream4) => {
   if (!isBlobInstance(stream4) && !isReadableStream3(stream4)) {
     const name = stream4?.__proto__?.constructor?.name || stream4;
     throw new Error(`Unexpected stream implementation, expect Blob or ReadableStream, got ${name}`);
@@ -74217,7 +74179,7 @@ var ERR_MSG_STREAM_HAS_BEEN_TRANSFORMED = "The stream has already been transform
       if (encoding === "base64") {
         return toBase642(buf);
       } else if (encoding === "hex") {
-        return toHex(buf);
+        return import_util_hex_encoding.toHex(buf);
       } else if (encoding === undefined || encoding === "utf8" || encoding === "utf-8") {
         return toUtf8(buf);
       } else if (typeof TextDecoder === "function") {
@@ -74244,7 +74206,7 @@ var ERR_MSG_STREAM_HAS_BEEN_TRANSFORMED = "The stream has already been transform
 var init_sdk_stream_mixin_browser = __esm(() => {
   init_dist_es8();
   init_dist_es4();
-  init_dist_es9();
+  import_util_hex_encoding = __toESM(require_dist_cjs13(), 1);
   init_dist_es3();
 });
 
@@ -74323,7 +74285,7 @@ async function splitStream3(stream4) {
 var init_splitStream = () => {};
 
 // node_modules/@smithy/util-stream/dist-es/index.js
-var init_dist_es10 = __esm(() => {
+var init_dist_es9 = __esm(() => {
   init_Uint8ArrayBlobAdapter();
   init_ChecksumStream();
   init_createChecksumStream();
@@ -74349,7 +74311,7 @@ var normalizeProvider = (input) => {
 };
 
 // node_modules/@smithy/util-middleware/dist-es/index.js
-var init_dist_es11 = __esm(() => {
+var init_dist_es10 = __esm(() => {
   init_getSmithyContext();
 });
 
@@ -74377,7 +74339,7 @@ var hostHeaderMiddleware = (options) => (next2) => async (args) => {
     clientStack.add(hostHeaderMiddleware(options), hostHeaderMiddlewareOptions);
   }
 });
-var init_dist_es12 = __esm(() => {
+var init_dist_es11 = __esm(() => {
   init_dist_es();
   hostHeaderMiddlewareOptions = {
     name: "hostHeaderMiddleware",
@@ -74433,7 +74395,7 @@ var init_loggerMiddleware = __esm(() => {
 });
 
 // node_modules/@aws-sdk/middleware-logger/dist-es/index.js
-var init_dist_es13 = __esm(() => {
+var init_dist_es12 = __esm(() => {
   init_loggerMiddleware();
 });
 
@@ -74462,7 +74424,7 @@ var TRACE_ID_HEADER_NAME = "X-Amzn-Trace-Id", ENV_LAMBDA_FUNCTION_NAME = "AWS_LA
     clientStack.add(recursionDetectionMiddleware(options), addRecursionDetectionMiddlewareOptions);
   }
 });
-var init_dist_es14 = __esm(() => {
+var init_dist_es13 = __esm(() => {
   init_dist_es();
   addRecursionDetectionMiddlewareOptions = {
     step: "build",
@@ -74739,7 +74701,7 @@ var init_MiddlewareStack = __esm(() => {
 });
 
 // node_modules/@smithy/middleware-stack/dist-es/index.js
-var init_dist_es15 = __esm(() => {
+var init_dist_es14 = __esm(() => {
   init_MiddlewareStack();
 });
 
@@ -74781,7 +74743,7 @@ class Client {
   }
 }
 var init_client = __esm(() => {
-  init_dist_es15();
+  init_dist_es14();
 });
 
 // node_modules/@smithy/smithy-client/dist-es/collect-stream-body.js
@@ -74913,7 +74875,7 @@ class ClassBuilder {
 }
 var import_types5;
 var init_command = __esm(() => {
-  init_dist_es15();
+  init_dist_es14();
   import_types5 = __toESM(require_dist_cjs(), 1);
 });
 
@@ -75300,7 +75262,7 @@ __export(exports_dist_es, {
   Command: () => Command,
   Client: () => Client
 });
-var init_dist_es16 = __esm(() => {
+var init_dist_es15 = __esm(() => {
   init_client();
   init_collect_stream_body();
   init_command();
@@ -75332,7 +75294,7 @@ var init_types2 = __esm(() => {
 });
 
 // node_modules/@smithy/util-config-provider/dist-es/index.js
-var init_dist_es17 = __esm(() => {
+var init_dist_es16 = __esm(() => {
   init_types2();
 });
 
@@ -75970,7 +75932,7 @@ var init_resolveEndpoint = __esm(() => {
 });
 
 // node_modules/@smithy/util-endpoints/dist-es/index.js
-var init_dist_es18 = __esm(() => {
+var init_dist_es17 = __esm(() => {
   init_isIpAddress();
   init_isValidHostLabel();
   init_customEndpointFunctions();
@@ -75980,7 +75942,7 @@ var init_dist_es18 = __esm(() => {
 
 // node_modules/@aws-sdk/util-endpoints/dist-es/lib/isIpAddress.js
 var init_isIpAddress2 = __esm(() => {
-  init_dist_es18();
+  init_dist_es17();
 });
 
 // node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/isVirtualHostableS3Bucket.js
@@ -76008,7 +75970,7 @@ var isVirtualHostableS3Bucket = (value, allowSubDomains = false) => {
   return true;
 };
 var init_isVirtualHostableS3Bucket = __esm(() => {
-  init_dist_es18();
+  init_dist_es17();
   init_isIpAddress2();
 });
 
@@ -76334,7 +76296,7 @@ var init_partition = __esm(() => {
 // node_modules/@aws-sdk/util-endpoints/dist-es/aws.js
 var awsEndpointFunctions;
 var init_aws = __esm(() => {
-  init_dist_es18();
+  init_dist_es17();
   init_isVirtualHostableS3Bucket();
   init_partition();
   awsEndpointFunctions = {
@@ -76347,12 +76309,12 @@ var init_aws = __esm(() => {
 
 // node_modules/@aws-sdk/util-endpoints/dist-es/resolveEndpoint.js
 var init_resolveEndpoint2 = __esm(() => {
-  init_dist_es18();
+  init_dist_es17();
 });
 
 // node_modules/@aws-sdk/util-endpoints/dist-es/types/EndpointError.js
 var init_EndpointError2 = __esm(() => {
-  init_dist_es18();
+  init_dist_es17();
 });
 
 // node_modules/@aws-sdk/util-endpoints/dist-es/types/EndpointRuleObject.js
@@ -76381,7 +76343,7 @@ var init_types4 = __esm(() => {
 });
 
 // node_modules/@aws-sdk/util-endpoints/dist-es/index.js
-var init_dist_es19 = __esm(() => {
+var init_dist_es18 = __esm(() => {
   init_aws();
   init_partition();
   init_isIpAddress2();
@@ -76527,7 +76489,7 @@ var userAgentMiddleware = (options) => (next2, context) => async (args) => {
   }
 });
 var init_user_agent_middleware = __esm(() => {
-  init_dist_es19();
+  init_dist_es18();
   init_dist_es();
   init_check_features();
   init_constants2();
@@ -76541,7 +76503,7 @@ var init_user_agent_middleware = __esm(() => {
 });
 
 // node_modules/@aws-sdk/middleware-user-agent/dist-es/index.js
-var init_dist_es20 = __esm(() => {
+var init_dist_es19 = __esm(() => {
   init_configurations();
   init_user_agent_middleware();
 });
@@ -76549,7 +76511,7 @@ var init_dist_es20 = __esm(() => {
 // node_modules/@smithy/config-resolver/dist-es/endpointsConfig/NodeUseDualstackEndpointConfigOptions.js
 var ENV_USE_DUALSTACK_ENDPOINT = "AWS_USE_DUALSTACK_ENDPOINT", CONFIG_USE_DUALSTACK_ENDPOINT = "use_dualstack_endpoint", NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS;
 var init_NodeUseDualstackEndpointConfigOptions = __esm(() => {
-  init_dist_es17();
+  init_dist_es16();
   NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS = {
     environmentVariableSelector: (env3) => booleanSelector(env3, ENV_USE_DUALSTACK_ENDPOINT, SelectorType2.ENV),
     configFileSelector: (profile) => booleanSelector(profile, CONFIG_USE_DUALSTACK_ENDPOINT, SelectorType2.CONFIG),
@@ -76560,7 +76522,7 @@ var init_NodeUseDualstackEndpointConfigOptions = __esm(() => {
 // node_modules/@smithy/config-resolver/dist-es/endpointsConfig/NodeUseFipsEndpointConfigOptions.js
 var ENV_USE_FIPS_ENDPOINT = "AWS_USE_FIPS_ENDPOINT", CONFIG_USE_FIPS_ENDPOINT = "use_fips_endpoint", NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS;
 var init_NodeUseFipsEndpointConfigOptions = __esm(() => {
-  init_dist_es17();
+  init_dist_es16();
   NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS = {
     environmentVariableSelector: (env3) => booleanSelector(env3, ENV_USE_FIPS_ENDPOINT, SelectorType2.ENV),
     configFileSelector: (profile) => booleanSelector(profile, CONFIG_USE_FIPS_ENDPOINT, SelectorType2.CONFIG),
@@ -76570,11 +76532,11 @@ var init_NodeUseFipsEndpointConfigOptions = __esm(() => {
 
 // node_modules/@smithy/config-resolver/dist-es/endpointsConfig/resolveCustomEndpointsConfig.js
 var init_resolveCustomEndpointsConfig = __esm(() => {
-  init_dist_es11();
+  init_dist_es10();
 });
 // node_modules/@smithy/config-resolver/dist-es/endpointsConfig/resolveEndpointsConfig.js
 var init_resolveEndpointsConfig = __esm(() => {
-  init_dist_es11();
+  init_dist_es10();
 });
 
 // node_modules/@smithy/config-resolver/dist-es/endpointsConfig/index.js
@@ -76656,7 +76618,7 @@ var init_regionInfo = __esm(() => {
 });
 
 // node_modules/@smithy/config-resolver/dist-es/index.js
-var init_dist_es21 = __esm(() => {
+var init_dist_es20 = __esm(() => {
   init_endpointsConfig();
   init_regionConfig();
   init_regionInfo();
@@ -76689,7 +76651,7 @@ var CONTENT_LENGTH_HEADER2 = "content-length", contentLengthMiddlewareOptions, g
     clientStack.add(contentLengthMiddleware(options.bodyLengthChecker), contentLengthMiddlewareOptions);
   }
 });
-var init_dist_es22 = __esm(() => {
+var init_dist_es21 = __esm(() => {
   init_dist_es();
   contentLengthMiddlewareOptions = {
     step: "build",
@@ -77039,7 +77001,7 @@ var init_parseKnownFiles = __esm(() => {
 var init_types5 = () => {};
 
 // node_modules/@smithy/shared-ini-file-loader/dist-es/index.js
-var init_dist_es23 = __esm(() => {
+var init_dist_es22 = __esm(() => {
   init_getHomeDir();
   init_getSSOTokenFilepath();
   init_getSSOTokenFromFile();
@@ -77069,7 +77031,7 @@ var import_property_provider2, fromSharedConfigFiles = (configSelector, { prefer
 };
 var init_fromSharedConfigFiles = __esm(() => {
   import_property_provider2 = __toESM(require_dist_cjs16(), 1);
-  init_dist_es23();
+  init_dist_es22();
 });
 
 // node_modules/@smithy/node-config-provider/dist-es/fromStatic.js
@@ -77092,7 +77054,7 @@ var init_configLoader = __esm(() => {
 });
 
 // node_modules/@smithy/node-config-provider/dist-es/index.js
-var init_dist_es24 = __esm(() => {
+var init_dist_es23 = __esm(() => {
   init_configLoader();
 });
 
@@ -77126,13 +77088,13 @@ var ENV_ENDPOINT_URL = "AWS_ENDPOINT_URL", CONFIG_ENDPOINT_URL = "endpoint_url",
   default: undefined
 });
 var init_getEndpointUrlConfig = __esm(() => {
-  init_dist_es23();
+  init_dist_es22();
 });
 
 // node_modules/@smithy/middleware-endpoint/dist-es/adaptors/getEndpointFromConfig.js
 var getEndpointFromConfig = async (serviceId) => loadConfig(getEndpointUrlConfig(serviceId ?? ""))();
 var init_getEndpointFromConfig = __esm(() => {
-  init_dist_es24();
+  init_dist_es23();
   init_getEndpointUrlConfig();
 });
 
@@ -77177,7 +77139,7 @@ var parseUrl = (url2) => {
     query
   };
 };
-var init_dist_es25 = () => {};
+var init_dist_es24 = () => {};
 
 // node_modules/@smithy/middleware-endpoint/dist-es/adaptors/toEndpointV1.js
 var toEndpointV1 = (endpoint) => {
@@ -77190,7 +77152,7 @@ var toEndpointV1 = (endpoint) => {
   return parseUrl(endpoint);
 };
 var init_toEndpointV1 = __esm(() => {
-  init_dist_es25();
+  init_dist_es24();
 });
 
 // node_modules/@smithy/middleware-endpoint/dist-es/adaptors/getEndpointFromInstructions.js
@@ -77290,7 +77252,7 @@ var import_core7, endpointMiddleware = ({ config: config5, instructions }) => {
 };
 var init_endpointMiddleware = __esm(() => {
   import_core7 = __toESM(require_dist_cjs15(), 1);
-  init_dist_es11();
+  init_dist_es10();
   init_getEndpointFromInstructions();
 });
 
@@ -77389,7 +77351,7 @@ var init_serdePlugin = __esm(() => {
 });
 
 // node_modules/@smithy/middleware-serde/dist-es/index.js
-var init_dist_es26 = __esm(() => {
+var init_dist_es25 = __esm(() => {
   init_deserializerMiddleware();
   init_serdePlugin();
 });
@@ -77404,7 +77366,7 @@ var endpointMiddlewareOptions, getEndpointPlugin = (config5, instructions) => ({
   }
 });
 var init_getEndpointPlugin = __esm(() => {
-  init_dist_es26();
+  init_dist_es25();
   init_endpointMiddleware();
   endpointMiddlewareOptions = {
     step: "serialize",
@@ -77439,7 +77401,7 @@ var resolveEndpointConfig = (input) => {
   return resolvedConfig;
 };
 var init_resolveEndpointConfig = __esm(() => {
-  init_dist_es11();
+  init_dist_es10();
   init_getEndpointFromConfig();
   init_toEndpointV1();
 });
@@ -77448,7 +77410,7 @@ var init_resolveEndpointConfig = __esm(() => {
 var init_types6 = () => {};
 
 // node_modules/@smithy/middleware-endpoint/dist-es/index.js
-var init_dist_es27 = __esm(() => {
+var init_dist_es26 = __esm(() => {
   init_adaptors();
   init_endpointMiddleware();
   init_getEndpointPlugin();
@@ -77514,7 +77476,7 @@ var isClockSkewCorrectedError = (error2) => error2.$metadata?.clockSkewCorrected
   }
   return false;
 };
-var init_dist_es28 = __esm(() => {
+var init_dist_es27 = __esm(() => {
   init_constants3();
 });
 
@@ -77617,7 +77579,7 @@ class DefaultRateLimiter {
   }
 }
 var init_DefaultRateLimiter = __esm(() => {
-  init_dist_es28();
+  init_dist_es27();
   DefaultRateLimiter.setTimeoutFn = setTimeout;
 });
 
@@ -77762,7 +77724,7 @@ var init_ConfiguredRetryStrategy = __esm(() => {
 var init_types7 = () => {};
 
 // node_modules/@smithy/util-retry/dist-es/index.js
-var init_dist_es29 = __esm(() => {
+var init_dist_es28 = __esm(() => {
   init_AdaptiveRetryStrategy();
   init_ConfiguredRetryStrategy();
   init_DefaultRateLimiter();
@@ -77789,17 +77751,17 @@ var init_wrapper = __esm(() => {
 
 // node_modules/@smithy/middleware-retry/dist-es/defaultRetryQuota.js
 var init_defaultRetryQuota = __esm(() => {
-  init_dist_es29();
+  init_dist_es28();
 });
 
 // node_modules/@smithy/middleware-retry/dist-es/delayDecider.js
 var init_delayDecider = __esm(() => {
-  init_dist_es29();
+  init_dist_es28();
 });
 
 // node_modules/@smithy/middleware-retry/dist-es/retryDecider.js
 var init_retryDecider = __esm(() => {
-  init_dist_es28();
+  init_dist_es27();
 });
 
 // node_modules/@smithy/middleware-retry/dist-es/util.js
@@ -77816,8 +77778,8 @@ var asSdkError = (error2) => {
 // node_modules/@smithy/middleware-retry/dist-es/StandardRetryStrategy.js
 var init_StandardRetryStrategy2 = __esm(() => {
   init_dist_es();
+  init_dist_es27();
   init_dist_es28();
-  init_dist_es29();
   init_defaultRetryQuota();
   init_delayDecider();
   init_retryDecider();
@@ -77825,7 +77787,7 @@ var init_StandardRetryStrategy2 = __esm(() => {
 
 // node_modules/@smithy/middleware-retry/dist-es/AdaptiveRetryStrategy.js
 var init_AdaptiveRetryStrategy2 = __esm(() => {
-  init_dist_es29();
+  init_dist_es28();
   init_StandardRetryStrategy2();
 });
 
@@ -77848,8 +77810,8 @@ var ENV_MAX_ATTEMPTS = "AWS_MAX_ATTEMPTS", CONFIG_MAX_ATTEMPTS = "max_attempts",
   });
 }, ENV_RETRY_MODE = "AWS_RETRY_MODE", CONFIG_RETRY_MODE = "retry_mode", NODE_RETRY_MODE_CONFIG_OPTIONS;
 var init_configurations2 = __esm(() => {
-  init_dist_es11();
-  init_dist_es29();
+  init_dist_es10();
+  init_dist_es28();
   NODE_MAX_ATTEMPT_CONFIG_OPTIONS = {
     environmentVariableSelector: (env3) => {
       const value = env3[ENV_MAX_ATTEMPTS];
@@ -77883,7 +77845,7 @@ var init_configurations2 = __esm(() => {
 // node_modules/@smithy/middleware-retry/dist-es/omitRetryHeadersMiddleware.js
 var init_omitRetryHeadersMiddleware = __esm(() => {
   init_dist_es();
-  init_dist_es29();
+  init_dist_es28();
 });
 
 // node_modules/@smithy/middleware-retry/dist-es/isStreamingPayload/isStreamingPayload.js
@@ -77982,9 +77944,9 @@ var retryMiddleware = (options) => (next2, context) => async (args) => {
 };
 var init_retryMiddleware = __esm(() => {
   init_dist_es();
+  init_dist_es27();
+  init_dist_es15();
   init_dist_es28();
-  init_dist_es16();
-  init_dist_es29();
   init_wrapper();
   init_isStreamingPayload();
   retryMiddlewareOptions = {
@@ -77997,7 +77959,7 @@ var init_retryMiddleware = __esm(() => {
 });
 
 // node_modules/@smithy/middleware-retry/dist-es/index.js
-var init_dist_es30 = __esm(() => {
+var init_dist_es29 = __esm(() => {
   init_AdaptiveRetryStrategy2();
   init_StandardRetryStrategy2();
   init_configurations2();
@@ -78046,7 +78008,7 @@ __export(exports_dist_es2, {
   ENV_CREDENTIAL_SCOPE: () => ENV_CREDENTIAL_SCOPE,
   ENV_ACCOUNT_ID: () => ENV_ACCOUNT_ID
 });
-var init_dist_es31 = __esm(() => {
+var init_dist_es30 = __esm(() => {
   init_fromEnv2();
 });
 
@@ -78248,8 +78210,8 @@ var getInstanceMetadataEndpoint = async () => parseUrl(await getFromEndpointConf
   }
 };
 var init_getInstanceMetadataEndpoint = __esm(() => {
+  init_dist_es23();
   init_dist_es24();
-  init_dist_es25();
   init_Endpoint();
   init_EndpointConfigOptions();
   init_EndpointMode();
@@ -78414,7 +78376,7 @@ var import_property_provider9, IMDS_PATH = "/latest/meta-data/iam/security-crede
   return fromImdsCredentials(credentialsResponse);
 };
 var init_fromInstanceMetadata = __esm(() => {
-  init_dist_es24();
+  init_dist_es23();
   import_property_provider9 = __toESM(require_dist_cjs16(), 1);
   init_InstanceMetadataV1FallbackError();
   init_httpRequest();
@@ -78440,7 +78402,7 @@ __export(exports_dist_es3, {
   DEFAULT_TIMEOUT: () => DEFAULT_TIMEOUT,
   DEFAULT_MAX_RETRIES: () => DEFAULT_MAX_RETRIES
 });
-var init_dist_es32 = __esm(() => {
+var init_dist_es31 = __esm(() => {
   init_fromContainerMetadata();
   init_fromInstanceMetadata();
   init_types8();
@@ -78528,8 +78490,8 @@ var import_property_provider11;
 var init_requestHelpers = __esm(() => {
   import_property_provider11 = __toESM(require_dist_cjs16(), 1);
   init_dist_es();
-  init_dist_es16();
-  init_dist_es10();
+  init_dist_es15();
+  init_dist_es9();
 });
 
 // node_modules/@aws-sdk/credential-provider-http/dist-es/fromHttp/retry-wrapper.js
@@ -78606,7 +78568,7 @@ var exports_dist_es4 = {};
 __export(exports_dist_es4, {
   fromHttp: () => fromHttp
 });
-var init_dist_es33 = __esm(() => {
+var init_dist_es32 = __esm(() => {
   init_fromHttp();
 });
 
@@ -83385,7 +83347,7 @@ var writeFile, writeSSOTokenToFile = (id, ssoToken) => {
   return writeFile(tokenFilepath, tokenString);
 };
 var init_writeSSOTokenToFile = __esm(() => {
-  init_dist_es23();
+  init_dist_es22();
   ({ writeFile } = fsPromises3);
 });
 
@@ -83467,7 +83429,7 @@ var import_property_provider17, lastRefreshAttemptTime, fromSso = (_init = {}) =
 };
 var init_fromSso = __esm(() => {
   import_property_provider17 = __toESM(require_dist_cjs16(), 1);
-  init_dist_es23();
+  init_dist_es22();
   init_constants5();
   init_getNewSsoOidcToken();
   init_validateTokenExpiry();
@@ -83489,7 +83451,7 @@ var init_nodeProvider = __esm(() => {
 });
 
 // node_modules/@aws-sdk/token-providers/dist-es/index.js
-var init_dist_es34 = __esm(() => {
+var init_dist_es33 = __esm(() => {
   init_fromEnvSigningName();
   init_fromSso();
   init_fromStatic2();
@@ -83556,7 +83518,7 @@ var import_core11, defaultSSOHttpAuthSchemeParametersProvider = async (config6, 
 };
 var init_httpAuthSchemeProvider = __esm(() => {
   import_core11 = __toESM(require_dist_cjs22(), 1);
-  init_dist_es11();
+  init_dist_es10();
 });
 
 // node_modules/@aws-sdk/client-sso/dist-es/endpoint/EndpointParameters.js
@@ -83733,7 +83695,7 @@ var init_defaultUserAgent = __esm(() => {
 // node_modules/@aws-sdk/util-user-agent-node/dist-es/nodeAppIdConfigOptions.js
 var UA_APP_ID_ENV_NAME = "AWS_SDK_UA_APP_ID", UA_APP_ID_INI_NAME = "sdk_ua_app_id", UA_APP_ID_INI_NAME_DEPRECATED = "sdk-ua-app-id", NODE_APP_ID_CONFIG_OPTIONS;
 var init_nodeAppIdConfigOptions = __esm(() => {
-  init_dist_es20();
+  init_dist_es19();
   NODE_APP_ID_CONFIG_OPTIONS = {
     environmentVariableSelector: (env4) => env4[UA_APP_ID_ENV_NAME],
     configFileSelector: (profile) => profile[UA_APP_ID_INI_NAME] ?? profile[UA_APP_ID_INI_NAME_DEPRECATED],
@@ -83742,7 +83704,7 @@ var init_nodeAppIdConfigOptions = __esm(() => {
 });
 
 // node_modules/@aws-sdk/util-user-agent-node/dist-es/index.js
-var init_dist_es35 = __esm(() => {
+var init_dist_es34 = __esm(() => {
   init_defaultUserAgent();
   init_nodeAppIdConfigOptions();
 });
@@ -83779,7 +83741,7 @@ function castSourceData(toCast, encoding) {
   }
   return fromArrayBuffer(toCast);
 }
-var init_dist_es36 = __esm(() => {
+var init_dist_es35 = __esm(() => {
   init_dist_es2();
   init_dist_es3();
 });
@@ -83808,7 +83770,7 @@ var calculateBodyLength = (body) => {
 var init_calculateBodyLength = () => {};
 
 // node_modules/@smithy/util-body-length-node/dist-es/index.js
-var init_dist_es37 = __esm(() => {
+var init_dist_es36 = __esm(() => {
   init_calculateBodyLength();
 });
 
@@ -83839,8 +83801,8 @@ var cache2, defaultEndpointResolver2 = (endpointParams, context = {}) => {
   }));
 };
 var init_endpointResolver = __esm(() => {
-  init_dist_es19();
   init_dist_es18();
+  init_dist_es17();
   init_ruleset();
   cache2 = new EndpointCache({
     size: 50,
@@ -83881,8 +83843,8 @@ var import_core12, import_core13, getRuntimeConfig = (config6) => {
 var init_runtimeConfig_shared = __esm(() => {
   import_core12 = __toESM(require_dist_cjs22(), 1);
   import_core13 = __toESM(require_dist_cjs15(), 1);
-  init_dist_es16();
-  init_dist_es25();
+  init_dist_es15();
+  init_dist_es24();
   init_dist_es4();
   init_dist_es3();
   init_httpAuthSchemeProvider();
@@ -83946,22 +83908,22 @@ var import_property_provider20, resolveDefaultsModeConfig = ({ region = loadConf
   }
   if (!process.env[ENV_IMDS_DISABLED2]) {
     try {
-      const { getInstanceMetadataEndpoint: getInstanceMetadataEndpoint2, httpRequest: httpRequest3 } = await Promise.resolve().then(() => (init_dist_es32(), exports_dist_es3));
+      const { getInstanceMetadataEndpoint: getInstanceMetadataEndpoint2, httpRequest: httpRequest3 } = await Promise.resolve().then(() => (init_dist_es31(), exports_dist_es3));
       const endpoint = await getInstanceMetadataEndpoint2();
       return (await httpRequest3({ ...endpoint, path: IMDS_REGION_PATH })).toString();
     } catch (e3) {}
   }
 };
 var init_resolveDefaultsModeConfig = __esm(() => {
-  init_dist_es21();
-  init_dist_es24();
+  init_dist_es20();
+  init_dist_es23();
   import_property_provider20 = __toESM(require_dist_cjs16(), 1);
   init_constants6();
   init_defaultsModeConfig();
 });
 
 // node_modules/@smithy/util-defaults-mode-node/dist-es/index.js
-var init_dist_es38 = __esm(() => {
+var init_dist_es37 = __esm(() => {
   init_resolveDefaultsModeConfig();
 });
 
@@ -84001,18 +83963,18 @@ var import_core14, getRuntimeConfig2 = (config6) => {
 var init_runtimeConfig = __esm(() => {
   init_package();
   import_core14 = __toESM(require_dist_cjs22(), 1);
+  init_dist_es34();
+  init_dist_es20();
   init_dist_es35();
-  init_dist_es21();
-  init_dist_es36();
-  init_dist_es30();
-  init_dist_es24();
-  init_dist_es7();
-  init_dist_es37();
   init_dist_es29();
+  init_dist_es23();
+  init_dist_es7();
+  init_dist_es36();
+  init_dist_es28();
   init_runtimeConfig_shared();
-  init_dist_es16();
-  init_dist_es38();
-  init_dist_es16();
+  init_dist_es15();
+  init_dist_es37();
+  init_dist_es15();
 });
 
 // node_modules/@aws-sdk/region-config-resolver/dist-es/extensions/index.js
@@ -84048,7 +84010,7 @@ var init_regionConfig2 = __esm(() => {
 });
 
 // node_modules/@aws-sdk/region-config-resolver/dist-es/index.js
-var init_dist_es39 = __esm(() => {
+var init_dist_es38 = __esm(() => {
   init_regionConfig2();
 });
 
@@ -84097,24 +84059,24 @@ var resolveRuntimeExtensions = (runtimeConfig, extensions4) => {
   return Object.assign(runtimeConfig, resolveAwsRegionExtensionConfiguration(extensionConfiguration), resolveDefaultRuntimeConfig(extensionConfiguration), resolveHttpHandlerRuntimeConfig(extensionConfiguration), resolveHttpAuthRuntimeConfig(extensionConfiguration));
 };
 var init_runtimeExtensions = __esm(() => {
-  init_dist_es39();
+  init_dist_es38();
   init_dist_es();
-  init_dist_es16();
+  init_dist_es15();
 });
 
 // node_modules/@aws-sdk/client-sso/dist-es/SSOClient.js
 var import_core15, SSOClient;
 var init_SSOClient = __esm(() => {
+  init_dist_es11();
   init_dist_es12();
   init_dist_es13();
-  init_dist_es14();
+  init_dist_es19();
   init_dist_es20();
-  init_dist_es21();
   import_core15 = __toESM(require_dist_cjs15(), 1);
-  init_dist_es22();
-  init_dist_es27();
-  init_dist_es30();
-  init_dist_es16();
+  init_dist_es21();
+  init_dist_es26();
+  init_dist_es29();
+  init_dist_es15();
   init_httpAuthSchemeProvider();
   init_EndpointParameters();
   init_runtimeConfig();
@@ -84157,7 +84119,7 @@ var init_SSOClient = __esm(() => {
 // node_modules/@aws-sdk/client-sso/dist-es/models/SSOServiceException.js
 var SSOServiceException;
 var init_SSOServiceException = __esm(() => {
-  init_dist_es16();
+  init_dist_es15();
   SSOServiceException = class SSOServiceException extends ServiceException {
     constructor(options) {
       super(options);
@@ -84188,7 +84150,7 @@ var InvalidRequestException, ResourceNotFoundException, TooManyRequestsException
   ...obj.accessToken && { accessToken: SENSITIVE_STRING }
 });
 var init_models_0 = __esm(() => {
-  init_dist_es16();
+  init_dist_es15();
   init_SSOServiceException();
   InvalidRequestException = class InvalidRequestException extends SSOServiceException {
     name = "InvalidRequestException";
@@ -84424,7 +84386,7 @@ var import_core16, import_core17, se_GetRoleCredentialsCommand = async (input, c
 var init_Aws_restJson1 = __esm(() => {
   import_core16 = __toESM(require_dist_cjs22(), 1);
   import_core17 = __toESM(require_dist_cjs15(), 1);
-  init_dist_es16();
+  init_dist_es15();
   init_models_0();
   init_SSOServiceException();
   throwDefaultError3 = withBaseException(SSOServiceException);
@@ -84433,9 +84395,9 @@ var init_Aws_restJson1 = __esm(() => {
 // node_modules/@aws-sdk/client-sso/dist-es/commands/GetRoleCredentialsCommand.js
 var GetRoleCredentialsCommand;
 var init_GetRoleCredentialsCommand = __esm(() => {
-  init_dist_es27();
   init_dist_es26();
-  init_dist_es16();
+  init_dist_es25();
+  init_dist_es15();
   init_EndpointParameters();
   init_models_0();
   init_Aws_restJson1();
@@ -84451,9 +84413,9 @@ var init_GetRoleCredentialsCommand = __esm(() => {
 // node_modules/@aws-sdk/client-sso/dist-es/commands/ListAccountRolesCommand.js
 var ListAccountRolesCommand;
 var init_ListAccountRolesCommand = __esm(() => {
-  init_dist_es27();
   init_dist_es26();
-  init_dist_es16();
+  init_dist_es25();
+  init_dist_es15();
   init_EndpointParameters();
   init_models_0();
   init_Aws_restJson1();
@@ -84469,9 +84431,9 @@ var init_ListAccountRolesCommand = __esm(() => {
 // node_modules/@aws-sdk/client-sso/dist-es/commands/ListAccountsCommand.js
 var ListAccountsCommand;
 var init_ListAccountsCommand = __esm(() => {
-  init_dist_es27();
   init_dist_es26();
-  init_dist_es16();
+  init_dist_es25();
+  init_dist_es15();
   init_EndpointParameters();
   init_models_0();
   init_Aws_restJson1();
@@ -84487,9 +84449,9 @@ var init_ListAccountsCommand = __esm(() => {
 // node_modules/@aws-sdk/client-sso/dist-es/commands/LogoutCommand.js
 var LogoutCommand;
 var init_LogoutCommand = __esm(() => {
-  init_dist_es27();
   init_dist_es26();
-  init_dist_es16();
+  init_dist_es25();
+  init_dist_es15();
   init_EndpointParameters();
   init_models_0();
   init_Aws_restJson1();
@@ -84505,7 +84467,7 @@ var init_LogoutCommand = __esm(() => {
 // node_modules/@aws-sdk/client-sso/dist-es/SSO.js
 var commands, SSO;
 var init_SSO = __esm(() => {
-  init_dist_es16();
+  init_dist_es15();
   init_GetRoleCredentialsCommand();
   init_ListAccountRolesCommand();
   init_ListAccountsCommand();
@@ -84564,7 +84526,7 @@ var init_models = __esm(() => {
 });
 
 // node_modules/@aws-sdk/client-sso/dist-es/index.js
-var init_dist_es40 = __esm(() => {
+var init_dist_es39 = __esm(() => {
   init_SSOClient();
   init_SSO();
   init_commands();
@@ -84579,7 +84541,7 @@ __export(exports_loadSso, {
   GetRoleCredentialsCommand: () => GetRoleCredentialsCommand
 });
 var init_loadSso = __esm(() => {
-  init_dist_es40();
+  init_dist_es39();
 });
 
 // node_modules/@aws-sdk/credential-provider-sso/dist-es/resolveSSOCredentials.js
@@ -84658,9 +84620,9 @@ var import_client45, import_property_provider21, SHOULD_FAIL_CREDENTIAL_CHAIN = 
 };
 var init_resolveSSOCredentials = __esm(() => {
   import_client45 = __toESM(require_client3(), 1);
-  init_dist_es34();
+  init_dist_es33();
   import_property_provider21 = __toESM(require_dist_cjs16(), 1);
-  init_dist_es23();
+  init_dist_es22();
 });
 
 // node_modules/@aws-sdk/credential-provider-sso/dist-es/validateSsoProfile.js
@@ -84744,7 +84706,7 @@ var import_property_provider23, fromSSO = (init = {}) => async ({ callerClientCo
 };
 var init_fromSSO = __esm(() => {
   import_property_provider23 = __toESM(require_dist_cjs16(), 1);
-  init_dist_es23();
+  init_dist_es22();
   init_resolveSSOCredentials();
   init_validateSsoProfile();
 });
@@ -84759,7 +84721,7 @@ __export(exports_dist_es5, {
   isSsoProfile: () => isSsoProfile,
   fromSSO: () => fromSSO
 });
-var init_dist_es41 = __esm(() => {
+var init_dist_es40 = __esm(() => {
   init_fromSSO();
   init_types9();
   init_validateSsoProfile();
@@ -84769,19 +84731,19 @@ var init_dist_es41 = __esm(() => {
 var import_client46, import_property_provider24, resolveCredentialSource = (credentialSource, profileName, logger4) => {
   const sourceProvidersMap = {
     EcsContainer: async (options) => {
-      const { fromHttp: fromHttp2 } = await Promise.resolve().then(() => (init_dist_es33(), exports_dist_es4));
-      const { fromContainerMetadata: fromContainerMetadata3 } = await Promise.resolve().then(() => (init_dist_es32(), exports_dist_es3));
+      const { fromHttp: fromHttp2 } = await Promise.resolve().then(() => (init_dist_es32(), exports_dist_es4));
+      const { fromContainerMetadata: fromContainerMetadata3 } = await Promise.resolve().then(() => (init_dist_es31(), exports_dist_es3));
       logger4?.debug("@aws-sdk/credential-provider-ini - credential_source is EcsContainer");
       return async () => import_property_provider24.chain(fromHttp2(options ?? {}), fromContainerMetadata3(options))().then(setNamedProvider);
     },
     Ec2InstanceMetadata: async (options) => {
       logger4?.debug("@aws-sdk/credential-provider-ini - credential_source is Ec2InstanceMetadata");
-      const { fromInstanceMetadata: fromInstanceMetadata3 } = await Promise.resolve().then(() => (init_dist_es32(), exports_dist_es3));
+      const { fromInstanceMetadata: fromInstanceMetadata3 } = await Promise.resolve().then(() => (init_dist_es31(), exports_dist_es3));
       return async () => fromInstanceMetadata3(options)().then(setNamedProvider);
     },
     Environment: async (options) => {
       logger4?.debug("@aws-sdk/credential-provider-ini - credential_source is Environment");
-      const { fromEnv: fromEnv4 } = await Promise.resolve().then(() => (init_dist_es31(), exports_dist_es2));
+      const { fromEnv: fromEnv4 } = await Promise.resolve().then(() => (init_dist_es30(), exports_dist_es2));
       return async () => fromEnv4(options)().then(setNamedProvider);
     }
   };
@@ -86105,7 +86067,7 @@ var import_client47, import_property_provider25, isAssumeRoleProfile = (arg, { p
 var init_resolveAssumeRoleCredentials = __esm(() => {
   import_client47 = __toESM(require_client3(), 1);
   import_property_provider25 = __toESM(require_dist_cjs16(), 1);
-  init_dist_es23();
+  init_dist_es22();
   init_resolveCredentialSource();
   init_resolveProfileData();
 });
@@ -86188,7 +86150,7 @@ var fromProcess = (init = {}) => async ({ callerClientConfig } = {}) => {
   }), profiles, init.logger);
 };
 var init_fromProcess = __esm(() => {
-  init_dist_es23();
+  init_dist_es22();
   init_resolveProcessCredentials();
 });
 
@@ -86197,12 +86159,12 @@ var exports_dist_es6 = {};
 __export(exports_dist_es6, {
   fromProcess: () => fromProcess
 });
-var init_dist_es42 = __esm(() => {
+var init_dist_es41 = __esm(() => {
   init_fromProcess();
 });
 
 // node_modules/@aws-sdk/credential-provider-ini/dist-es/resolveProcessCredentials.js
-var import_client49, isProcessProfile = (arg) => Boolean(arg) && typeof arg === "object" && typeof arg.credential_process === "string", resolveProcessCredentials2 = async (options, profile) => Promise.resolve().then(() => (init_dist_es42(), exports_dist_es6)).then(({ fromProcess: fromProcess3 }) => fromProcess3({
+var import_client49, isProcessProfile = (arg) => Boolean(arg) && typeof arg === "object" && typeof arg.credential_process === "string", resolveProcessCredentials2 = async (options, profile) => Promise.resolve().then(() => (init_dist_es41(), exports_dist_es6)).then(({ fromProcess: fromProcess3 }) => fromProcess3({
   ...options,
   profile
 })().then((creds) => import_client49.setCredentialFeature(creds, "CREDENTIALS_PROFILE_PROCESS", "v")));
@@ -86212,7 +86174,7 @@ var init_resolveProcessCredentials2 = __esm(() => {
 
 // node_modules/@aws-sdk/credential-provider-ini/dist-es/resolveSsoCredentials.js
 var import_client50, resolveSsoCredentials = async (profile, profileData, options = {}) => {
-  const { fromSSO: fromSSO3 } = await Promise.resolve().then(() => (init_dist_es41(), exports_dist_es5));
+  const { fromSSO: fromSSO3 } = await Promise.resolve().then(() => (init_dist_es40(), exports_dist_es5));
   return fromSSO3({
     profile,
     logger: options.logger,
@@ -86307,12 +86269,12 @@ __export(exports_dist_es7, {
   fromWebToken: () => fromWebToken,
   fromTokenFile: () => fromTokenFile
 });
-var init_dist_es43 = __esm(() => {
+var init_dist_es42 = __esm(() => {
   init_fromTokenFile();
 });
 
 // node_modules/@aws-sdk/credential-provider-ini/dist-es/resolveWebIdentityCredentials.js
-var import_client53, isWebIdentityProfile = (arg) => Boolean(arg) && typeof arg === "object" && typeof arg.web_identity_token_file === "string" && typeof arg.role_arn === "string" && ["undefined", "string"].indexOf(typeof arg.role_session_name) > -1, resolveWebIdentityCredentials = async (profile, options) => Promise.resolve().then(() => (init_dist_es43(), exports_dist_es7)).then(({ fromTokenFile: fromTokenFile3 }) => fromTokenFile3({
+var import_client53, isWebIdentityProfile = (arg) => Boolean(arg) && typeof arg === "object" && typeof arg.web_identity_token_file === "string" && typeof arg.role_arn === "string" && ["undefined", "string"].indexOf(typeof arg.role_session_name) > -1, resolveWebIdentityCredentials = async (profile, options) => Promise.resolve().then(() => (init_dist_es42(), exports_dist_es7)).then(({ fromTokenFile: fromTokenFile3 }) => fromTokenFile3({
   webIdentityTokenFile: profile.web_identity_token_file,
   roleArn: profile.role_arn,
   roleSessionName: profile.role_session_name,
@@ -86372,7 +86334,7 @@ var fromIni = (_init = {}) => async ({ callerClientConfig } = {}) => {
   }), profiles, init);
 };
 var init_fromIni = __esm(() => {
-  init_dist_es23();
+  init_dist_es22();
   init_resolveProfileData();
 });
 
@@ -86381,7 +86343,7 @@ var exports_dist_es8 = {};
 __export(exports_dist_es8, {
   fromIni: () => fromIni
 });
-var init_dist_es44 = __esm(() => {
+var init_dist_es43 = __esm(() => {
   init_fromIni();
 });
 
@@ -113476,6 +113438,9 @@ async function syncDispatchShipmentStatus(orderId) {
   const deliveryJob = getKwikDeliveryJob(providerResponse);
   const status = mapProviderStatus(deliveryJob?.job_status);
   if (status === shipment.status) {
+    if (status === "DELIVERED") {
+      await settleSellerWalletsForDeliveredOrder(shipment.orderId);
+    }
     return shipment;
   }
   return updateShipmentStatus(shipment.id, status, {
@@ -113921,6 +113886,7 @@ async function settleSellerWalletsForDeliveredOrder(orderId) {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       select: {
+        status: true,
         subtotalAmount: true,
         commissionAmount: true,
         sellerPayoutAmount: true
@@ -113928,6 +113894,9 @@ async function settleSellerWalletsForDeliveredOrder(orderId) {
     });
     if (!order) {
       throw new Error("Order not found for seller settlement");
+    }
+    if (order.status !== "DELIVERED") {
+      throw new Error("Seller settlement can only run after order delivery");
     }
     const unsettledItems = await tx.orderItem.findMany({
       where: {
@@ -115227,7 +115196,7 @@ var crc64NvmeCrtContainer = {
 // node_modules/@aws-sdk/middleware-flexible-checksums/dist-es/flexibleChecksumsMiddleware.js
 var import_core = __toESM(require_dist_cjs22(), 1);
 init_dist_es();
-init_dist_es10();
+init_dist_es9();
 
 // node_modules/@aws-sdk/middleware-flexible-checksums/dist-es/types.js
 var CLIENT_SUPPORTED_ALGORITHMS = [
@@ -115286,7 +115255,8 @@ var hasHeaderWithPrefix = (headerPrefix, headers) => {
 };
 
 // node_modules/@aws-sdk/middleware-flexible-checksums/dist-es/isStreaming.js
-var isStreaming = (body) => body !== undefined && typeof body !== "string" && !ArrayBuffer.isView(body) && !isArrayBuffer2(body);
+var import_is_array_buffer2 = __toESM(require_dist_cjs5(), 1);
+var isStreaming = (body) => body !== undefined && typeof body !== "string" && !ArrayBuffer.isView(body) && !import_is_array_buffer2.isArrayBuffer(body);
 
 // node_modules/tslib/modules/index.js
 var import_tslib = __toESM(require_tslib(), 1);
@@ -116223,7 +116193,7 @@ var isChecksumWithPartNumber = (checksum2) => {
 };
 
 // node_modules/@aws-sdk/middleware-flexible-checksums/dist-es/validateChecksumFromResponse.js
-init_dist_es10();
+init_dist_es9();
 
 // node_modules/@aws-sdk/middleware-flexible-checksums/dist-es/getChecksum.js
 var getChecksum = async (body, { checksumAlgorithmFn, base64Encoder }) => base64Encoder(await stringHasher(checksumAlgorithmFn, body));
@@ -116310,7 +116280,7 @@ var getFlexibleChecksumsPlugin = (config4, middlewareConfig) => ({
   }
 });
 // node_modules/@aws-sdk/middleware-flexible-checksums/dist-es/resolveFlexibleChecksumsConfig.js
-init_dist_es11();
+init_dist_es10();
 var resolveFlexibleChecksumsConfig = (input) => {
   const { requestChecksumCalculation, responseChecksumValidation, requestStreamBufferSize } = input;
   return Object.assign(input, {
@@ -116320,13 +116290,13 @@ var resolveFlexibleChecksumsConfig = (input) => {
   });
 };
 // node_modules/@aws-sdk/client-s3/dist-es/S3Client.js
+init_dist_es11();
 init_dist_es12();
 init_dist_es13();
-init_dist_es14();
 
 // node_modules/@aws-sdk/middleware-sdk-s3/dist-es/check-content-length-header.js
 init_dist_es();
-init_dist_es16();
+init_dist_es15();
 var CONTENT_LENGTH_HEADER = "content-length";
 var DECODED_CONTENT_LENGTH_HEADER = "x-amz-decoded-content-length";
 function checkContentLengthHeader() {
@@ -116433,7 +116403,7 @@ var getRegionRedirectMiddlewarePlugin = (clientConfig) => ({
 });
 // node_modules/@aws-sdk/middleware-sdk-s3/dist-es/s3-expires-middleware.js
 init_dist_es();
-init_dist_es16();
+init_dist_es15();
 // node_modules/@aws-sdk/middleware-sdk-s3/dist-es/s3-express/classes/S3ExpressIdentityCache.js
 class S3ExpressIdentityCache {
   data;
@@ -116539,7 +116509,7 @@ class S3ExpressIdentityProviderImpl {
   }
 }
 // node_modules/@smithy/signature-v4/dist-es/SignatureV4.js
-init_dist_es9();
+var import_util_hex_encoding6 = __toESM(require_dist_cjs13(), 1);
 init_dist_es3();
 
 // node_modules/@smithy/signature-v4/dist-es/constants.js
@@ -116584,14 +116554,14 @@ var KEY_TYPE_IDENTIFIER = "aws4_request";
 var MAX_PRESIGNED_TTL = 60 * 60 * 24 * 7;
 
 // node_modules/@smithy/signature-v4/dist-es/credentialDerivation.js
-init_dist_es9();
+var import_util_hex_encoding2 = __toESM(require_dist_cjs13(), 1);
 init_dist_es3();
 var signingKeyCache = {};
 var cacheQueue = [];
 var createScope = (shortDate, region, service) => `${shortDate}/${region}/${service}/${KEY_TYPE_IDENTIFIER}`;
 var getSigningKey = async (sha256Constructor, credentials, shortDate, region, service) => {
   const credsHash = await hmac(sha256Constructor, credentials.secretAccessKey, credentials.accessKeyId);
-  const cacheKey = `${shortDate}:${region}:${service}:${toHex(credsHash)}:${credentials.sessionToken}`;
+  const cacheKey = `${shortDate}:${region}:${service}:${import_util_hex_encoding2.toHex(credsHash)}:${credentials.sessionToken}`;
   if (cacheKey in signingKeyCache) {
     return signingKeyCache[cacheKey];
   }
@@ -116630,7 +116600,8 @@ var getCanonicalHeaders = ({ headers }, unsignableHeaders, signableHeaders) => {
 };
 
 // node_modules/@smithy/signature-v4/dist-es/getPayloadHash.js
-init_dist_es9();
+var import_is_array_buffer4 = __toESM(require_dist_cjs5(), 1);
+var import_util_hex_encoding3 = __toESM(require_dist_cjs13(), 1);
 init_dist_es3();
 var getPayloadHash = async ({ headers, body }, hashConstructor) => {
   for (const headerName of Object.keys(headers)) {
@@ -116640,16 +116611,16 @@ var getPayloadHash = async ({ headers, body }, hashConstructor) => {
   }
   if (body == undefined) {
     return "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-  } else if (typeof body === "string" || ArrayBuffer.isView(body) || isArrayBuffer2(body)) {
+  } else if (typeof body === "string" || ArrayBuffer.isView(body) || import_is_array_buffer4.isArrayBuffer(body)) {
     const hashCtor = new hashConstructor;
     hashCtor.update(toUint8Array(body));
-    return toHex(await hashCtor.digest());
+    return import_util_hex_encoding3.toHex(await hashCtor.digest());
   }
   return UNSIGNED_PAYLOAD;
 };
 
 // node_modules/@smithy/signature-v4/dist-es/HeaderFormatter.js
-init_dist_es9();
+var import_util_hex_encoding4 = __toESM(require_dist_cjs13(), 1);
 init_dist_es3();
 
 class HeaderFormatter {
@@ -116714,7 +116685,7 @@ class HeaderFormatter {
         }
         const uuidBytes = new Uint8Array(17);
         uuidBytes[0] = 9;
-        uuidBytes.set(fromHex(header.value.replace(/\-/g, "")), 1);
+        uuidBytes.set(import_util_hex_encoding4.fromHex(header.value.replace(/\-/g, "")), 1);
         return uuidBytes;
     }
   }
@@ -116760,7 +116731,7 @@ class Int64 {
     if (negative) {
       negate(bytes);
     }
-    return parseInt(toHex(bytes), 16) * (negative ? -1 : 1);
+    return parseInt(import_util_hex_encoding4.toHex(bytes), 16) * (negative ? -1 : 1);
   }
   toString() {
     return String(this.valueOf());
@@ -116819,8 +116790,8 @@ var prepareRequest = (request) => {
 };
 
 // node_modules/@smithy/signature-v4/dist-es/SignatureV4Base.js
-init_dist_es9();
-init_dist_es11();
+var import_util_hex_encoding5 = __toESM(require_dist_cjs13(), 1);
+init_dist_es10();
 init_dist_es5();
 init_dist_es3();
 
@@ -116888,7 +116859,7 @@ ${payloadHash}`;
     return `${algorithmIdentifier}
 ${longDate}
 ${credentialScope}
-${toHex(hashedRequest)}`;
+${import_util_hex_encoding5.toHex(hashedRequest)}`;
   }
   getCanonicalPath({ path: path2 }) {
     if (this.uriEscapePath) {
@@ -116981,7 +116952,7 @@ class SignatureV4 extends SignatureV4Base {
     const hashedPayload = await getPayloadHash({ headers: {}, body: payload }, this.sha256);
     const hash2 = new this.sha256;
     hash2.update(headers);
-    const hashedHeaders = toHex(await hash2.digest());
+    const hashedHeaders = import_util_hex_encoding6.toHex(await hash2.digest());
     const stringToSign = [
       EVENT_ALGORITHM_IDENTIFIER,
       longDate,
@@ -117014,7 +116985,7 @@ class SignatureV4 extends SignatureV4Base {
     const { shortDate } = this.formatDate(signingDate);
     const hash2 = new this.sha256(await this.getSigningKey(credentials, region, shortDate, signingService));
     hash2.update(toUint8Array(stringToSign));
-    return toHex(await hash2.digest());
+    return import_util_hex_encoding6.toHex(await hash2.digest());
   }
   async signRequest(requestToSign, { signingDate = new Date, signableHeaders, unsignableHeaders, signingRegion, signingService } = {}) {
     const credentials = await this.credentialProvider();
@@ -117040,7 +117011,7 @@ class SignatureV4 extends SignatureV4Base {
     const stringToSign = await this.createStringToSign(longDate, credentialScope, canonicalRequest, ALGORITHM_IDENTIFIER);
     const hash2 = new this.sha256(await keyPromise);
     hash2.update(toUint8Array(stringToSign));
-    return toHex(await hash2.digest());
+    return import_util_hex_encoding6.toHex(await hash2.digest());
   }
   getSigningKey(credentials, region, shortDate, service) {
     return getSigningKey(this.sha256, credentials, shortDate, region, service || this.service);
@@ -117051,7 +117022,7 @@ var signatureV4aContainer = {
   SignatureV4a: null
 };
 // node_modules/@aws-sdk/middleware-sdk-s3/dist-es/s3-express/constants.js
-init_dist_es17();
+init_dist_es16();
 var S3_EXPRESS_BUCKET_TYPE = "Directory";
 var S3_EXPRESS_BACKEND = "S3Express";
 var S3_EXPRESS_AUTH_SCHEME = "sigv4-s3express";
@@ -117149,7 +117120,7 @@ var getS3ExpressPlugin = (options) => ({
 var import_core4 = __toESM(require_dist_cjs15(), 1);
 init_dist_es();
 var import_types7 = __toESM(require_dist_cjs(), 1);
-init_dist_es11();
+init_dist_es10();
 
 // node_modules/@aws-sdk/middleware-sdk-s3/dist-es/s3-express/functions/signS3Express.js
 var signS3Express = async (s3ExpressIdentity, signingOptions, request, sigV4MultiRegionSigner) => {
@@ -117210,7 +117181,7 @@ var resolveS3Config = (input, { session }) => {
 };
 // node_modules/@aws-sdk/middleware-sdk-s3/dist-es/throw-200-exceptions.js
 init_dist_es();
-init_dist_es10();
+init_dist_es9();
 var THROW_IF_EMPTY_BODY = {
   CopyObjectCommand: true,
   UploadPartCopyCommand: true,
@@ -117338,8 +117309,8 @@ var getValidateBucketNamePlugin = (options) => ({
   }
 });
 // node_modules/@aws-sdk/client-s3/dist-es/S3Client.js
+init_dist_es19();
 init_dist_es20();
-init_dist_es21();
 var import_core22 = __toESM(require_dist_cjs15(), 1);
 
 // node_modules/@smithy/eventstream-serde-config-resolver/dist-es/EventStreamSerdeConfig.js
@@ -117347,10 +117318,10 @@ var resolveEventStreamSerdeConfig = (input) => Object.assign(input, {
   eventStreamMarshaller: input.eventStreamSerdeProvider(input)
 });
 // node_modules/@aws-sdk/client-s3/dist-es/S3Client.js
-init_dist_es22();
-init_dist_es27();
-init_dist_es30();
-init_dist_es16();
+init_dist_es21();
+init_dist_es26();
+init_dist_es29();
+init_dist_es15();
 
 // node_modules/@aws-sdk/client-s3/dist-es/auth/httpAuthSchemeProvider.js
 var import_core8 = __toESM(require_dist_cjs22(), 1);
@@ -117446,12 +117417,12 @@ class SignatureV4MultiRegion {
   }
 }
 // node_modules/@aws-sdk/client-s3/dist-es/auth/httpAuthSchemeProvider.js
-init_dist_es27();
-init_dist_es11();
+init_dist_es26();
+init_dist_es10();
 
 // node_modules/@aws-sdk/client-s3/dist-es/endpoint/endpointResolver.js
-init_dist_es19();
 init_dist_es18();
+init_dist_es17();
 
 // node_modules/@aws-sdk/client-s3/dist-es/endpoint/ruleset.js
 var cp = "required";
@@ -117790,9 +117761,9 @@ var resolveHttpAuthSchemeConfig = (config6) => {
 };
 
 // node_modules/@aws-sdk/client-s3/dist-es/commands/CreateSessionCommand.js
-init_dist_es27();
 init_dist_es26();
-init_dist_es16();
+init_dist_es25();
+init_dist_es15();
 
 // node_modules/@aws-sdk/client-s3/dist-es/endpoint/EndpointParameters.js
 var resolveClientEndpointParameters = (options) => {
@@ -117820,10 +117791,10 @@ var commonParams = {
 };
 
 // node_modules/@aws-sdk/client-s3/dist-es/models/models_0.js
-init_dist_es16();
+init_dist_es15();
 
 // node_modules/@aws-sdk/client-s3/dist-es/models/S3ServiceException.js
-init_dist_es16();
+init_dist_es15();
 class S3ServiceException extends ServiceException {
   constructor(options) {
     super(options);
@@ -117982,10 +117953,10 @@ var CreateSessionRequestFilterSensitiveLog = (obj) => ({
 var import_core9 = __toESM(require_dist_cjs22(), 1);
 var import_core10 = __toESM(require_dist_cjs15(), 1);
 init_dist_es();
-init_dist_es16();
+init_dist_es15();
 
 // node_modules/@aws-sdk/client-s3/dist-es/models/models_1.js
-init_dist_es16();
+init_dist_es15();
 class EncryptionTypeMismatch extends S3ServiceException {
   name = "EncryptionTypeMismatch";
   $fault = "client";
@@ -118715,18 +118686,18 @@ var package_default = {
 var import_core21 = __toESM(require_dist_cjs22(), 1);
 
 // node_modules/@aws-sdk/credential-provider-node/dist-es/defaultProvider.js
-init_dist_es31();
+init_dist_es30();
 var import_property_provider29 = __toESM(require_dist_cjs16(), 1);
-init_dist_es23();
+init_dist_es22();
 
 // node_modules/@aws-sdk/credential-provider-node/dist-es/remoteProvider.js
 var import_property_provider13 = __toESM(require_dist_cjs16(), 1);
 var ENV_IMDS_DISABLED = "AWS_EC2_METADATA_DISABLED";
 var remoteProvider = async (init) => {
-  const { ENV_CMDS_FULL_URI: ENV_CMDS_FULL_URI2, ENV_CMDS_RELATIVE_URI: ENV_CMDS_RELATIVE_URI2, fromContainerMetadata: fromContainerMetadata3, fromInstanceMetadata: fromInstanceMetadata3 } = await Promise.resolve().then(() => (init_dist_es32(), exports_dist_es3));
+  const { ENV_CMDS_FULL_URI: ENV_CMDS_FULL_URI2, ENV_CMDS_RELATIVE_URI: ENV_CMDS_RELATIVE_URI2, fromContainerMetadata: fromContainerMetadata3, fromInstanceMetadata: fromInstanceMetadata3 } = await Promise.resolve().then(() => (init_dist_es31(), exports_dist_es3));
   if (process.env[ENV_CMDS_RELATIVE_URI2] || process.env[ENV_CMDS_FULL_URI2]) {
     init.logger?.debug("@aws-sdk/credential-provider-node - remoteProvider::fromHttp/fromContainerMetadata");
-    const { fromHttp: fromHttp2 } = await Promise.resolve().then(() => (init_dist_es33(), exports_dist_es4));
+    const { fromHttp: fromHttp2 } = await Promise.resolve().then(() => (init_dist_es32(), exports_dist_es4));
     return import_property_provider13.chain(fromHttp2(init), fromContainerMetadata3(init));
   }
   if (process.env[ENV_IMDS_DISABLED] && process.env[ENV_IMDS_DISABLED] !== "false") {
@@ -118772,19 +118743,19 @@ var defaultProvider = (init = {}) => import_property_provider29.memoize(import_p
   if (!ssoStartUrl && !ssoAccountId && !ssoRegion && !ssoRoleName && !ssoSession) {
     throw new import_property_provider29.CredentialsProviderError("Skipping SSO provider in default chain (inputs do not include SSO fields).", { logger: init.logger });
   }
-  const { fromSSO: fromSSO3 } = await Promise.resolve().then(() => (init_dist_es41(), exports_dist_es5));
+  const { fromSSO: fromSSO3 } = await Promise.resolve().then(() => (init_dist_es40(), exports_dist_es5));
   return fromSSO3(init)();
 }, async () => {
   init.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromIni");
-  const { fromIni: fromIni3 } = await Promise.resolve().then(() => (init_dist_es44(), exports_dist_es8));
+  const { fromIni: fromIni3 } = await Promise.resolve().then(() => (init_dist_es43(), exports_dist_es8));
   return fromIni3(init)();
 }, async () => {
   init.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromProcess");
-  const { fromProcess: fromProcess3 } = await Promise.resolve().then(() => (init_dist_es42(), exports_dist_es6));
+  const { fromProcess: fromProcess3 } = await Promise.resolve().then(() => (init_dist_es41(), exports_dist_es6));
   return fromProcess3(init)();
 }, async () => {
   init.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::fromTokenFile");
-  const { fromTokenFile: fromTokenFile3 } = await Promise.resolve().then(() => (init_dist_es43(), exports_dist_es7));
+  const { fromTokenFile: fromTokenFile3 } = await Promise.resolve().then(() => (init_dist_es42(), exports_dist_es7));
   return fromTokenFile3(init)();
 }, async () => {
   init.logger?.debug("@aws-sdk/credential-provider-node - defaultProvider::remoteProvider");
@@ -118798,9 +118769,9 @@ var defaultProvider = (init = {}) => import_property_provider29.memoize(import_p
 var credentialsWillNeedRefresh = (credentials) => credentials?.expiration !== undefined;
 var credentialsTreatedAsExpired = (credentials) => credentials?.expiration !== undefined && credentials.expiration.getTime() - Date.now() < 300000;
 // node_modules/@aws-sdk/middleware-bucket-endpoint/dist-es/NodeDisableMultiregionAccessPointConfigOptions.js
-init_dist_es17();
+init_dist_es16();
 // node_modules/@aws-sdk/middleware-bucket-endpoint/dist-es/NodeUseArnRegionConfigOptions.js
-init_dist_es17();
+init_dist_es16();
 var NODE_USE_ARN_REGION_ENV_NAME = "AWS_S3_USE_ARN_REGION";
 var NODE_USE_ARN_REGION_INI_NAME = "s3_use_arn_region";
 var NODE_USE_ARN_REGION_CONFIG_OPTIONS = {
@@ -118811,14 +118782,14 @@ var NODE_USE_ARN_REGION_CONFIG_OPTIONS = {
 // node_modules/@aws-sdk/middleware-bucket-endpoint/dist-es/bucketEndpointMiddleware.js
 init_dist_es();
 // node_modules/@aws-sdk/client-s3/dist-es/runtimeConfig.js
-init_dist_es35();
-init_dist_es21();
+init_dist_es34();
+init_dist_es20();
 
 // node_modules/@smithy/eventstream-codec/dist-es/HeaderMarshaller.js
-init_dist_es9();
+var import_util_hex_encoding8 = __toESM(require_dist_cjs13(), 1);
 
 // node_modules/@smithy/eventstream-codec/dist-es/Int64.js
-init_dist_es9();
+var import_util_hex_encoding7 = __toESM(require_dist_cjs13(), 1);
 
 class Int642 {
   constructor(bytes) {
@@ -118846,7 +118817,7 @@ class Int642 {
     if (negative) {
       negate2(bytes);
     }
-    return parseInt(toHex(bytes), 16) * (negative ? -1 : 1);
+    return parseInt(import_util_hex_encoding7.toHex(bytes), 16) * (negative ? -1 : 1);
   }
   toString() {
     return String(this.valueOf());
@@ -118930,7 +118901,7 @@ class HeaderMarshaller {
         }
         const uuidBytes = new Uint8Array(17);
         uuidBytes[0] = 9;
-        uuidBytes.set(fromHex(header.value.replace(/\-/g, "")), 1);
+        uuidBytes.set(import_util_hex_encoding8.fromHex(header.value.replace(/\-/g, "")), 1);
         return uuidBytes;
     }
   }
@@ -119011,7 +118982,7 @@ class HeaderMarshaller {
           position += 16;
           out[name] = {
             type: UUID_TAG,
-            value: `${toHex(uuidBytes.subarray(0, 4))}-${toHex(uuidBytes.subarray(4, 6))}-${toHex(uuidBytes.subarray(6, 8))}-${toHex(uuidBytes.subarray(8, 10))}-${toHex(uuidBytes.subarray(10))}`
+            value: `${import_util_hex_encoding8.toHex(uuidBytes.subarray(0, 4))}-${import_util_hex_encoding8.toHex(uuidBytes.subarray(4, 6))}-${import_util_hex_encoding8.toHex(uuidBytes.subarray(6, 8))}-${import_util_hex_encoding8.toHex(uuidBytes.subarray(8, 10))}-${import_util_hex_encoding8.toHex(uuidBytes.subarray(10))}`
           };
           break;
         default:
@@ -119370,7 +119341,7 @@ class EventStreamMarshaller3 {
 // node_modules/@smithy/eventstream-serde-node/dist-es/provider.js
 var eventStreamSerdeProvider = (options) => new EventStreamMarshaller3(options);
 // node_modules/@aws-sdk/client-s3/dist-es/runtimeConfig.js
-init_dist_es36();
+init_dist_es35();
 
 // node_modules/@smithy/hash-stream-node/dist-es/HashCalculator.js
 init_dist_es3();
@@ -119410,18 +119381,18 @@ var readableStreamHasher = (hashCtor, readableStream) => {
   });
 };
 // node_modules/@aws-sdk/client-s3/dist-es/runtimeConfig.js
-init_dist_es30();
-init_dist_es24();
-init_dist_es7();
-init_dist_es37();
 init_dist_es29();
+init_dist_es23();
+init_dist_es7();
+init_dist_es36();
+init_dist_es28();
 
 // node_modules/@aws-sdk/client-s3/dist-es/runtimeConfig.shared.js
 var import_core20 = __toESM(require_dist_cjs22(), 1);
-init_dist_es16();
-init_dist_es25();
+init_dist_es15();
+init_dist_es24();
 init_dist_es4();
-init_dist_es10();
+init_dist_es9();
 init_dist_es3();
 var getRuntimeConfig3 = (config7) => {
   return {
@@ -119458,9 +119429,9 @@ var getRuntimeConfig3 = (config7) => {
 };
 
 // node_modules/@aws-sdk/client-s3/dist-es/runtimeConfig.js
-init_dist_es16();
-init_dist_es38();
-init_dist_es16();
+init_dist_es15();
+init_dist_es37();
+init_dist_es15();
 var getRuntimeConfig4 = (config7) => {
   emitWarningIfUnsupportedVersion(process.version);
   const defaultsMode = resolveDefaultsModeConfig(config7);
@@ -119505,9 +119476,9 @@ var getRuntimeConfig4 = (config7) => {
 };
 
 // node_modules/@aws-sdk/client-s3/dist-es/runtimeExtensions.js
-init_dist_es39();
+init_dist_es38();
 init_dist_es();
-init_dist_es16();
+init_dist_es15();
 
 // node_modules/@aws-sdk/client-s3/dist-es/auth/httpAuthExtensionConfiguration.js
 var getHttpAuthExtensionConfiguration2 = (runtimeConfig) => {
@@ -119663,9 +119634,9 @@ function isValidBase64EncodedSSECustomerKey(str, options) {
 }
 
 // node_modules/@aws-sdk/client-s3/dist-es/commands/DeleteObjectCommand.js
-init_dist_es27();
 init_dist_es26();
-init_dist_es16();
+init_dist_es25();
+init_dist_es15();
 class DeleteObjectCommand extends Command.classBuilder().ep({
   ...commonParams,
   Bucket: { type: "contextParams", name: "Bucket" },
@@ -119680,9 +119651,9 @@ class DeleteObjectCommand extends Command.classBuilder().ep({
 }
 
 // node_modules/@aws-sdk/client-s3/dist-es/commands/PutObjectCommand.js
-init_dist_es27();
 init_dist_es26();
-init_dist_es16();
+init_dist_es25();
+init_dist_es15();
 class PutObjectCommand extends Command.classBuilder().ep({
   ...commonParams,
   Bucket: { type: "contextParams", name: "Bucket" },
@@ -119734,7 +119705,7 @@ function formatUrl(request2) {
 }
 
 // node_modules/@aws-sdk/s3-request-presigner/dist-es/getSignedUrl.js
-init_dist_es27();
+init_dist_es26();
 init_dist_es();
 
 // node_modules/@aws-sdk/s3-request-presigner/dist-es/constants.js
@@ -120371,6 +120342,39 @@ var dispatchRoutes = createBaseElysia({
     tags: ["Dispatch"],
     summary: "Sync Kwik shipment status",
     description: "Fetches the current Kwik delivery task status and updates the order shipment."
+  }
+}).post("/orders/:orderId/settle", async ({ params, set: set2, cookie: { session } }) => {
+  const user = await getAuthenticatedUser(session.value);
+  if (!user) {
+    set2.status = "Unauthorized";
+    return { status: "error", message: "Invalid session" };
+  }
+  const allowed = await canAccessOrder(params.orderId, user.id);
+  if (!allowed) {
+    set2.status = 404;
+    return { status: "error", message: "Order not found" };
+  }
+  const order = await db.order.findUnique({
+    where: { id: params.orderId },
+    select: { status: true }
+  });
+  if (order?.status !== "DELIVERED") {
+    set2.status = 400;
+    return { status: "error", message: "Order must be delivered before seller settlement" };
+  }
+  try {
+    await settleSellerWalletsForDeliveredOrder(params.orderId);
+    return { status: "success", message: "Seller wallet settlement completed" };
+  } catch (error2) {
+    set2.status = 400;
+    return { status: "error", message: error2.message };
+  }
+}, {
+  params: t.Object({ orderId: t.String() }),
+  detail: {
+    tags: ["Dispatch"],
+    summary: "Settle delivered order seller wallet",
+    description: "Reconciles seller wallet payout for an already delivered order. Safe to retry; already settled items are skipped."
   }
 }).post("/orders/:orderId/cancel", async ({ params, set: set2, cookie: { session } }) => {
   const user = await getAuthenticatedUser(session.value);

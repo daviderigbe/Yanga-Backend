@@ -292,6 +292,10 @@ export async function syncDispatchShipmentStatus(orderId: string) {
   const status = mapProviderStatus(deliveryJob?.job_status);
 
   if (status === shipment.status) {
+    if (status === "DELIVERED") {
+      await settleSellerWalletsForDeliveredOrder(shipment.orderId);
+    }
+
     return shipment;
   }
 
@@ -883,11 +887,12 @@ function getShipmentTimestampField(status: DeliveryStatus) {
   return null;
 }
 
-async function settleSellerWalletsForDeliveredOrder(orderId: string) {
+export async function settleSellerWalletsForDeliveredOrder(orderId: string) {
   await db.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       select: {
+        status: true,
         subtotalAmount: true,
         commissionAmount: true,
         sellerPayoutAmount: true,
@@ -896,6 +901,10 @@ async function settleSellerWalletsForDeliveredOrder(orderId: string) {
 
     if (!order) {
       throw new Error("Order not found for seller settlement");
+    }
+
+    if (order.status !== "DELIVERED") {
+      throw new Error("Seller settlement can only run after order delivery");
     }
 
     const unsettledItems = await tx.orderItem.findMany({

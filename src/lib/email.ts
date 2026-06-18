@@ -27,14 +27,23 @@ export async function sendEmail({
     name: Bun.env.EMAIL_FROM_NAME || "AFRAB",
   };
 
-  await transporter.sendMail({
-    from: sender,
-    to: Array.isArray(to) ? to : [to],
-    subject,
-    text: body,
-    html: html || body.replace(/\n/g, "<br>"),
-    category: category || "Default",
-  });
+  try {
+    await withTimeout(
+      transporter.sendMail({
+        from: sender,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        text: body,
+        html: html || body.replace(/\n/g, "<br>"),
+        category: category || "Default",
+      }),
+      Number(Bun.env.EMAIL_TIMEOUT_MS || 10000),
+    );
+  } finally {
+    if ("close" in transporter && typeof transporter.close === "function") {
+      transporter.close();
+    }
+  }
 }
 
 function createEmailTransporter() {
@@ -49,6 +58,9 @@ function createEmailTransporter() {
         user: Bun.env.EMAIL_USER || "api",
         pass: Bun.env.EMAIL_PASS,
       },
+      connectionTimeout: Number(Bun.env.EMAIL_TIMEOUT_MS || 10000),
+      greetingTimeout: Number(Bun.env.EMAIL_TIMEOUT_MS || 10000),
+      socketTimeout: Number(Bun.env.EMAIL_TIMEOUT_MS || 10000),
     });
   }
 
@@ -57,4 +69,22 @@ function createEmailTransporter() {
       token: Bun.env.EMAIL_PASS,
     }),
   );
+}
+
+function withTimeout(promise: Promise<unknown>, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Email provider timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then(() => {
+        clearTimeout(timeout);
+        resolve();
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
 }

@@ -1,7 +1,7 @@
 import { t } from "elysia";
 import { db } from "../../lib/db";
 import { createBaseElysia } from "../../base";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { sendEmail } from "../../lib/email";
 import { redisClient } from "../../lib/redis";
 
@@ -80,8 +80,43 @@ export const signup = createBaseElysia().post(
       // Hash password
       const passwordHash = await Bun.password.hash(body.password);
 
+      // Generate verification code
+      const userId = randomUUID();
+      const code = randomBytes(3).toString("hex").toUpperCase();
+      const redisKey = `email_verification:${email}`;
+
+      try {
+        await redisClient.set(
+          redisKey,
+          JSON.stringify({
+            code,
+            userId,
+            email,
+          }),
+          { EX: 15 * 60 },
+        );
+
+        await sendEmail({
+          to: email,
+          subject: "Verify your email",
+          body: `Your verification code is ${code}. It expires in 15 minutes.`,
+        });
+      } catch (err) {
+        log.error("[Verification Email Setup Failed]:", err);
+        await redisClient.del(redisKey).catch(deleteErr => {
+          log.error("[Signup Verification Cleanup Failed]:", deleteErr);
+        });
+        set.status = 502;
+        return {
+          status: "error",
+          message:
+            "Account could not be created because the verification email could not be sent. Please try again.",
+        };
+      }
+
       const user = await db.user.create({
         data: {
+          id: userId,
           email,
           name: body.name,
           userName: username,
@@ -95,39 +130,12 @@ export const signup = createBaseElysia().post(
           userName: true,
           emailVerified: true,
         },
+      }).catch(async (err) => {
+        await redisClient.del(redisKey).catch(deleteErr => {
+          log.error("[Signup Verification Cleanup Failed]:", deleteErr);
+        });
+        throw err;
       });
-
-      // Generate verification code
-      const code = randomBytes(3).toString("hex").toUpperCase();
-
-      try {
-        await redisClient.set(
-          `email_verification:${email}`,
-          JSON.stringify({
-            code,
-            userId: user.id,
-            email: user.email,
-          }),
-          { EX: 15 * 60 },
-        );
-
-        await sendEmail({
-          to: email,
-          subject: "Verify your email",
-          body: `Your verification code is ${code}. It expires in 15 minutes.`,
-        });
-      } catch (err) {
-        log.error("[Verification Email Setup Failed]:", err);
-        await db.user.delete({ where: { id: user.id } }).catch(deleteErr => {
-          log.error("[Signup Rollback Failed]:", deleteErr);
-        });
-        set.status = 502;
-        return {
-          status: "error",
-          message:
-            "Account could not be created because the verification email could not be sent. Please try again.",
-        };
-      }
 
       set.status = 201;
       const responseUser = {

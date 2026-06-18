@@ -99895,7 +99895,7 @@ var baseElysia = (config3) => new Elysia(config3).use(logger3);
 var createBaseElysia = (config3) => new Elysia(config3);
 
 // src/controllers/auth/signup.ts
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 
 // src/lib/email.ts
 var import_nodemailer = __toESM(require_nodemailer(), 1);
@@ -99915,14 +99915,20 @@ async function sendEmail({
     address: Bun.env.EMAIL_FROM || "hello@demomailtrap.co",
     name: Bun.env.EMAIL_FROM_NAME || "AFRAB"
   };
-  await transporter.sendMail({
-    from: sender,
-    to: Array.isArray(to) ? to : [to],
-    subject,
-    text: body,
-    html: html || body.replace(/\n/g, "<br>"),
-    category: category || "Default"
-  });
+  try {
+    await withTimeout(transporter.sendMail({
+      from: sender,
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      text: body,
+      html: html || body.replace(/\n/g, "<br>"),
+      category: category || "Default"
+    }), Number(Bun.env.EMAIL_TIMEOUT_MS || 1e4));
+  } finally {
+    if ("close" in transporter && typeof transporter.close === "function") {
+      transporter.close();
+    }
+  }
 }
 function createEmailTransporter() {
   if (Bun.env.EMAIL_HOST) {
@@ -99934,12 +99940,29 @@ function createEmailTransporter() {
       auth: {
         user: Bun.env.EMAIL_USER || "api",
         pass: Bun.env.EMAIL_PASS
-      }
+      },
+      connectionTimeout: Number(Bun.env.EMAIL_TIMEOUT_MS || 1e4),
+      greetingTimeout: Number(Bun.env.EMAIL_TIMEOUT_MS || 1e4),
+      socketTimeout: Number(Bun.env.EMAIL_TIMEOUT_MS || 1e4)
     });
   }
   return import_nodemailer.default.createTransport(import_mailtrap.MailtrapTransport({
     token: Bun.env.EMAIL_PASS
   }));
+}
+function withTimeout(promise, timeoutMs) {
+  return new Promise((resolve2, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Email provider timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    promise.then(() => {
+      clearTimeout(timeout);
+      resolve2();
+    }).catch((err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
 }
 
 // src/lib/redis.ts
@@ -100017,8 +100040,34 @@ var signup = createBaseElysia().post("signup", async ({ body, set: set2, log }) 
       };
     }
     const passwordHash = await Bun.password.hash(body.password);
+    const userId = randomUUID();
+    const code = randomBytes(3).toString("hex").toUpperCase();
+    const redisKey = `email_verification:${email}`;
+    try {
+      await redisClient.set(redisKey, JSON.stringify({
+        code,
+        userId,
+        email
+      }), { EX: 15 * 60 });
+      await sendEmail({
+        to: email,
+        subject: "Verify your email",
+        body: `Your verification code is ${code}. It expires in 15 minutes.`
+      });
+    } catch (err) {
+      log.error("[Verification Email Setup Failed]:", err);
+      await redisClient.del(redisKey).catch((deleteErr) => {
+        log.error("[Signup Verification Cleanup Failed]:", deleteErr);
+      });
+      set2.status = 502;
+      return {
+        status: "error",
+        message: "Account could not be created because the verification email could not be sent. Please try again."
+      };
+    }
     const user = await db.user.create({
       data: {
+        id: userId,
         email,
         name: body.name,
         userName: username,
@@ -100032,30 +100081,12 @@ var signup = createBaseElysia().post("signup", async ({ body, set: set2, log }) 
         userName: true,
         emailVerified: true
       }
+    }).catch(async (err) => {
+      await redisClient.del(redisKey).catch((deleteErr) => {
+        log.error("[Signup Verification Cleanup Failed]:", deleteErr);
+      });
+      throw err;
     });
-    const code = randomBytes(3).toString("hex").toUpperCase();
-    try {
-      await redisClient.set(`email_verification:${email}`, JSON.stringify({
-        code,
-        userId: user.id,
-        email: user.email
-      }), { EX: 15 * 60 });
-      await sendEmail({
-        to: email,
-        subject: "Verify your email",
-        body: `Your verification code is ${code}. It expires in 15 minutes.`
-      });
-    } catch (err) {
-      log.error("[Verification Email Setup Failed]:", err);
-      await db.user.delete({ where: { id: user.id } }).catch((deleteErr) => {
-        log.error("[Signup Rollback Failed]:", deleteErr);
-      });
-      set2.status = 502;
-      return {
-        status: "error",
-        message: "Account could not be created because the verification email could not be sent. Please try again."
-      };
-    }
     set2.status = 201;
     const responseUser = {
       ...user,

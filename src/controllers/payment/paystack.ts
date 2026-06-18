@@ -7,7 +7,9 @@ import {
   nairaToKobo,
   koboToNaira,
   withdrawFromWallet,
-  getSupportedBanks, withdrawToBank
+  getSupportedBanks,
+  validateBankAccount,
+  withdrawToBank
 } from "../../services/paystack";
 import {db} from "../../lib/db";
 import { validateSessionToken } from "../../lib/auth";
@@ -829,6 +831,63 @@ export const orderRoutes = createBaseElysia()
             description: "Get list of banks supported by Paystack for transfers",
           },
         }
+    )
+
+    // Resolve bank account owner name before withdrawal
+    .post(
+        "/banks/resolve",
+        async ({ body, set }) => {
+          try {
+            const bankCode = body.bankCode || await resolveBankCodeFromName(body.bankName);
+
+            if (!bankCode) {
+              set.status = 400;
+              return {
+                status: "error",
+                message: "bankCode or a valid supported bankName is required",
+              };
+            }
+
+            const validation = await validateBankAccount(body.accountNumber, bankCode);
+
+            if (!validation.status) {
+              set.status = 400;
+              return {
+                status: "error",
+                message: validation.message || "Unable to resolve bank account",
+              };
+            }
+
+            return {
+              status: "success",
+              message: "Bank account resolved successfully",
+              data: {
+                accountNumber: validation.data?.account_number || body.accountNumber,
+                accountName: validation.data?.account_name,
+                bankCode,
+                bankName: body.bankName,
+              },
+            };
+          } catch (err: any) {
+            set.status = 400;
+            return {
+              status: "error",
+              message: err.message || "Unable to resolve bank account",
+            };
+          }
+        },
+        {
+          body: t.Object({
+            accountNumber: t.String({ minLength: 10, maxLength: 10 }),
+            bankCode: t.Optional(t.String()),
+            bankName: t.Optional(t.String()),
+          }),
+          detail: {
+            tags: ["Utility"],
+            summary: "Resolve bank account name",
+            description: "Resolve a Nigerian bank account number to its account owner name using Paystack. Prefer bankCode from the supported banks endpoint; bankName is accepted for convenience.",
+          },
+        }
     );
 
 async function resolveCheckoutUser(token?: string) {
@@ -838,6 +897,34 @@ async function resolveCheckoutUser(token?: string) {
 
   const { session, user } = await validateSessionToken(token);
   return session && user ? user : null;
+}
+
+async function resolveBankCodeFromName(bankName?: string) {
+  if (!bankName) return "";
+
+  const normalizedInput = normalizeBankName(bankName);
+  const banks = await getSupportedBanks();
+  const bankList = Array.isArray(banks?.data) ? banks.data : [];
+  const exactMatch = bankList.find((bank: any) => normalizeBankName(bank.name) === normalizedInput);
+
+  if (exactMatch?.code) {
+    return String(exactMatch.code);
+  }
+
+  const partialMatch = bankList.find((bank: any) => {
+    const normalizedBankName = normalizeBankName(bank.name);
+    return normalizedBankName.includes(normalizedInput) || normalizedInput.includes(normalizedBankName);
+  });
+
+  return partialMatch?.code ? String(partialMatch.code) : "";
+}
+
+function normalizeBankName(value?: string) {
+  return (value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function mergeOrderItems(items: { productId: string; quantity: number }[]) {

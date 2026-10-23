@@ -86,7 +86,7 @@ const SELLERS = [
   {
     name: "Amara Okonkwo",
     userName: "amara.archive",
-    email: "amara.seller@afrab.test",
+    email: "amara.seller@yanga.test",
     shop: "Amara Archive",
     bio: "Curated occasionwear, silk separates, and polished Lagos evening pieces.",
     areaIndex: 0,
@@ -94,7 +94,7 @@ const SELLERS = [
   {
     name: "Teni Balogun",
     userName: "teni.threadhouse",
-    email: "teni.seller@afrab.test",
+    email: "teni.seller@yanga.test",
     shop: "Threadhouse Lagos",
     bio: "Sharp everyday staples, denim, and clean basics for city wardrobes.",
     areaIndex: 1,
@@ -102,7 +102,7 @@ const SELLERS = [
   {
     name: "Kamsi Nwosu",
     userName: "kamsi.studio",
-    email: "kamsi.seller@afrab.test",
+    email: "kamsi.seller@yanga.test",
     shop: "Kamsi Studio",
     bio: "Minimal womenswear with warm tailoring and rich neutral tones.",
     areaIndex: 2,
@@ -110,7 +110,7 @@ const SELLERS = [
   {
     name: "Damilare Cole",
     userName: "dami.market",
-    email: "dami.seller@afrab.test",
+    email: "dami.seller@yanga.test",
     shop: "Cole Market",
     bio: "Menswear, sneakers, utility jackets, and weekend-ready essentials.",
     areaIndex: 3,
@@ -118,7 +118,7 @@ const SELLERS = [
   {
     name: "Zainab Bello",
     userName: "zainab.collective",
-    email: "zainab.seller@afrab.test",
+    email: "zainab.seller@yanga.test",
     shop: "Zee Collective",
     bio: "Accessories, statement bags, sunglasses, and playful finishing pieces.",
     areaIndex: 4,
@@ -126,7 +126,7 @@ const SELLERS = [
   {
     name: "Ifeanyi Eze",
     userName: "ifeanyi.lane",
-    email: "ifeanyi.seller@afrab.test",
+    email: "ifeanyi.seller@yanga.test",
     shop: "Ifeanyi Lane",
     bio: "Premium pre-loved designer finds and elevated streetwear.",
     areaIndex: 5,
@@ -134,7 +134,7 @@ const SELLERS = [
   {
     name: "Moyo Adebayo",
     userName: "moyo.edit",
-    email: "moyo.seller@afrab.test",
+    email: "moyo.seller@yanga.test",
     shop: "Moyo Edit",
     bio: "Fresh drops for brunch, beach days, and easy Lagos nights.",
     areaIndex: 6,
@@ -142,7 +142,7 @@ const SELLERS = [
   {
     name: "Nora Osagie",
     userName: "nora.room",
-    email: "nora.seller@afrab.test",
+    email: "nora.seller@yanga.test",
     shop: "Nora Room",
     bio: "Soft tailoring, workwear, and refined wardrobe updates.",
     areaIndex: 7,
@@ -150,12 +150,12 @@ const SELLERS = [
 ];
 
 const BUYERS = [
-  ["Chioma Adeyemi", "chioma.buyer", "chioma.buyer@afrab.test", 8],
-  ["Kunle Sanni", "kunle.buyer", "kunle.buyer@afrab.test", 9],
-  ["Dara Williams", "dara.buyer", "dara.buyer@afrab.test", 0],
-  ["Tobi Lawal", "tobi.buyer", "tobi.buyer@afrab.test", 1],
-  ["Ebele Udo", "ebele.buyer", "ebele.buyer@afrab.test", 2],
-  ["Seyi Martins", "seyi.buyer", "seyi.buyer@afrab.test", 3],
+  ["Chioma Adeyemi", "chioma.buyer", "chioma.buyer@yanga.test", 8],
+  ["Kunle Sanni", "kunle.buyer", "kunle.buyer@yanga.test", 9],
+  ["Dara Williams", "dara.buyer", "dara.buyer@yanga.test", 0],
+  ["Tobi Lawal", "tobi.buyer", "tobi.buyer@yanga.test", 1],
+  ["Ebele Udo", "ebele.buyer", "ebele.buyer@yanga.test", 2],
+  ["Seyi Martins", "seyi.buyer", "seyi.buyer@yanga.test", 3],
 ] as const;
 
 const CATEGORIES = [
@@ -602,7 +602,7 @@ async function seedUsers() {
     password: passwordHash,
     name,
     imageUrl: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=f97316,0ea5e9,16a34a`,
-    bio: "Testing AFRA B marketplace checkout, saved addresses, and order tracking.",
+    bio: "Testing Yanga marketplace checkout, saved addresses, and order tracking.",
     userName,
     bankCode: null,
     bankName: null,
@@ -907,9 +907,9 @@ async function seedOrders(
       provider: DispatchProvider.MANUAL,
       serviceLevel: "STANDARD",
       status: deliveryStatus,
-      externalShipmentId: `AFRA-SEED-${String(index + 1).padStart(4, "0")}`,
+      externalShipmentId: `YANGA-SEED-${String(index + 1).padStart(4, "0")}`,
       externalTrackingId: `TRK-SEED-${String(index + 1).padStart(4, "0")}`,
-      trackingUrl: `https://tracking.afrab.test/TRK-SEED-${String(index + 1).padStart(4, "0")}`,
+      trackingUrl: `https://tracking.yanga.test/TRK-SEED-${String(index + 1).padStart(4, "0")}`,
       deliveryFee: fees.deliveryFee,
       currency: "NGN",
       pickupName: seller.name,
@@ -1054,7 +1054,7 @@ async function seedDiscountCodes() {
 }
 
 async function main() {
-  console.log("Starting AFRA B Lagos marketplace seed...");
+  console.log("Starting Yanga Lagos marketplace seed...");
 
   await cleanDatabase();
   const { sellers, buyers } = await seedUsers();
@@ -1069,7 +1069,7 @@ async function main() {
   await seedMessagingAndNotifications([...sellers, ...buyers], products);
   await seedDiscountCodes();
 
-  console.log("AFRA B marketplace seed completed.");
+  console.log("Yanga marketplace seed completed.");
   console.table({
     sellers: sellers.length,
     buyers: buyers.length,

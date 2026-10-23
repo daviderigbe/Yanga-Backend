@@ -484,6 +484,8 @@ export const orderRoutes = createBaseElysia()
               });
             });
 
+            await notifySaleParticipants(order);
+
             const shipment = await createDispatchShipment({ orderId });
 
             return {
@@ -889,6 +891,46 @@ export const orderRoutes = createBaseElysia()
           },
         }
     );
+
+async function notifySaleParticipants(order: {
+  buyerId: string;
+  items: { product: { sellerId: string; title: string } }[];
+}) {
+  const itemsBySeller = new Map<string, string[]>();
+  for (const item of order.items) {
+    const sellerId = item.product.sellerId;
+    const titles = itemsBySeller.get(sellerId) ?? [];
+    titles.push(item.product.title);
+    itemsBySeller.set(sellerId, titles);
+  }
+
+  const notifications = Array.from(itemsBySeller.entries()).map(([sellerId, titles]) =>
+    db.notification.create({
+      data: {
+        userId: sellerId,
+        type: "PRODUCT_SOLD",
+        content:
+          titles.length === 1
+            ? `"${titles[0]}" just sold! Get it ready for pickup.`
+            : `${titles.length} of your items just sold! Get them ready for pickup.`,
+      },
+    }),
+  );
+
+  notifications.push(
+    db.notification.create({
+      data: {
+        userId: order.buyerId,
+        type: "ORDER_STATUS",
+        content: "Payment confirmed! Your order is now processing.",
+      },
+    }),
+  );
+
+  await Promise.all(notifications).catch(() => {
+    // Notifications are a non-critical side effect of a completed payment.
+  });
+}
 
 async function resolveCheckoutUser(token?: string) {
   if (!token) {

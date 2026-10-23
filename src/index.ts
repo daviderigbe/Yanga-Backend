@@ -21,6 +21,7 @@ import { salesRoutes } from "./controllers/sales";
 import { purchaseRoutes } from "./controllers/purchase";
 import { uploadRoutes } from "./controllers/upload/upload";
 import { dispatchRoutes } from "./controllers/dispatch";
+import { notificationsRoutes } from "./controllers/notifications";
 
 const app = baseElysia()
   .use(cors({}))
@@ -29,7 +30,7 @@ const app = baseElysia()
       path: "/api/swagger",
       documentation: {
         info: {
-          title: "AFRA B API Documentation",
+          title: "Yanga API Documentation",
           version: "1.0.0",
         },
       },
@@ -54,7 +55,8 @@ const app = baseElysia()
       .use(dispatchRoutes)
       .use(salesRoutes)
       .use(purchaseRoutes)
-      .use(uploadRoutes),
+      .use(uploadRoutes)
+      .use(notificationsRoutes),
   );
 
 // Initialize Redis connection before starting the server

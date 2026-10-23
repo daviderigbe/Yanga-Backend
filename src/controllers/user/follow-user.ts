@@ -62,14 +62,17 @@ export const followUser = createBaseElysia().post(
         },
       });
 
-      //TODO: // Create notification for followed user
-      // await db.notification.create({
-      //   data: {
-      //     userId: params.id,
-      //     type: "NEW_FOLLOWER",
-      //     content: `${user.name || "Someone"} started following you`
-      //   }
-      // });
+      await db.notification
+        .create({
+          data: {
+            userId: params.id,
+            type: "NEW_FOLLOWER",
+            content: `${user.name || "Someone"} started following you`,
+          },
+        })
+        .catch(() => {
+          // Notifications are a non-critical side effect of following a user.
+        });
 
       return {
         status: "success",

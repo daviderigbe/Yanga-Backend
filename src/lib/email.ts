@@ -24,7 +24,7 @@ export async function sendEmail({
 
   const sender = {
     address: Bun.env.EMAIL_FROM || "hello@demomailtrap.co",
-    name: Bun.env.EMAIL_FROM_NAME || "AFRAB",
+    name: Bun.env.EMAIL_FROM_NAME || "YANGA",
   };
 
   try {

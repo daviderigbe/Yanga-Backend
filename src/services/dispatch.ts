@@ -376,10 +376,13 @@ export async function updateShipmentStatus(
   });
 
   if (status === "DISPATCHED" || status === "IN_TRANSIT" || status === "ARRIVED") {
-    await db.order.update({
-      where: { id: shipment.orderId },
-      data: { status: "SHIPPED" },
-    });
+    if (shipment.order.status !== "SHIPPED") {
+      await db.order.update({
+        where: { id: shipment.orderId },
+        data: { status: "SHIPPED" },
+      });
+      await notifyBuyerOrderStatus(shipment.order.buyerId, "Your order is on its way.");
+    }
   }
 
   if (status === "DELIVERED") {
@@ -388,13 +391,21 @@ export async function updateShipmentStatus(
       data: { status: "DELIVERED" },
     });
     await settleSellerWalletsForDeliveredOrder(shipment.orderId);
+    await notifyBuyerOrderStatus(shipment.order.buyerId, "Your order has been delivered. Enjoy!");
   }
 
-  if (status === "CANCELLED" || status === "FAILED" || status === "RETURNED") {
+  if (
+    (status === "CANCELLED" || status === "FAILED" || status === "RETURNED") &&
+    shipment.order.status !== "PROCESSING"
+  ) {
     await db.order.update({
       where: { id: shipment.orderId },
       data: { status: "PROCESSING" },
     });
+    await notifyBuyerOrderStatus(
+      shipment.order.buyerId,
+      `Your delivery was ${status.toLowerCase()}. Our team is looking into it.`,
+    );
   }
 
   await recordOrderActivity({
@@ -988,4 +999,14 @@ export async function settleSellerWalletsForDeliveredOrder(orderId: string) {
 
 function roundMoney(amount: number) {
   return Math.round(amount * 100) / 100;
+}
+
+async function notifyBuyerOrderStatus(buyerId: string, content: string) {
+  await db.notification
+    .create({
+      data: { userId: buyerId, type: "ORDER_STATUS", content },
+    })
+    .catch(() => {
+      // Notifications are a non-critical side effect of a delivery status change.
+    });
 }
